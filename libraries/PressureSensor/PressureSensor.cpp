@@ -4,17 +4,19 @@ PressureSensor::PressureSensor()
 {
   Adafruit_BMP085_Unified bmp = Adafruit_BMP085_Unified(10085);
   seaLevelPressure = SENSORS_PRESSURE_SEALEVELHPA;
+
 }
-void PressureSensor::init()
+void PressureSensor::Init()
 {
   if(!bmp.begin())
   {
     while(1);
   }
-  bmp.getEvent(&event); 
 }
-boolean PressureSensor::getData(float array[])
+boolean PressureSensor::GetData(float array[])
 {
+  sensors_event_t event;
+  bmp.getEvent(&event);
   if (event.pressure)
   {
     float temperature;
@@ -28,7 +30,7 @@ boolean PressureSensor::getData(float array[])
   }
   return 0;
 }
-boolean PressureSensor::sendData(float pressureToSet)
+boolean PressureSensor::SendData(float pressureToSet)
 {
   seaLevelPressure = pressureToSet;
 }

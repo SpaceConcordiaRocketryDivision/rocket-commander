@@ -12,9 +12,9 @@ class PressureSensor
 {
 	public:
           PressureSensor();
-	  boolean getData (float array[]);
-          boolean sendData(float pressureToSet);
-          void init();
+		boolean GetData (float array[]);
+          boolean SendData(float pressureToSet);
+          void Init();
         
         private:
           Adafruit_BMP085_Unified bmp;
