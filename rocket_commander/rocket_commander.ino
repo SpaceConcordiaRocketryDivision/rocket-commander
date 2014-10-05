@@ -11,6 +11,9 @@
 #define STAGE_THREE 3
 #define STAGE_FOUR 4
 
+//Component Id values
+
+
 
 //Component objects
 PressureSensor pressureSensor;
@@ -25,6 +28,7 @@ boolean gpsDataStatus = 0;
 float dofData[9] = {0}; //9 channels (accel xyz, mag xyz, heading, 2 unused)
 float gpsData[10] = {0}; // CHANGE to suit number of required data fields
 float bmpData[PRESSURE_ARRAY_SIZE] = {0};  // Pressure Temperature Altitude
+char* currentCommand[] = {'\0'};
 
 int rocketStage = LOCKED_GROUND_STAGE;
 
