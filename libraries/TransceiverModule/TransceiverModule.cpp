@@ -26,8 +26,14 @@ boolean TransceiverModule::SendData(float arrayToSend[],int arraySize, char comp
   if(Serial)
   {
 	  Serial.print(componentId);
-	  for(int i = 0; i < arraySize; i++)
+	  Serial.print(":");
+	  Serial.print((long)arrayToSend[0]);
+	  for(int i = 1; i < arraySize; i++)
+	  {
+	    Serial.print(":");
 		Serial.print(arrayToSend[i]);
+	  }
+	  Serial.println();
 	  return 1;
   }
   return 0;

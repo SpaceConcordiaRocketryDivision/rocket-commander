@@ -12,7 +12,8 @@
 #define STAGE_FOUR 4
 
 //Component Id values
-
+#define PRESSURE_SENSOR_ID 0x50
+#define DOF_SENSOR_ID 0x51
 
 
 //Component objects
@@ -41,7 +42,8 @@ void setup() {
 void loop() {
 
   pressureSensorStatus = pressureSensor.GetData(bmpData);
-  OutputDataArrays();
+  transceiverModule.SendData(bmpData,PRESSURE_ARRAY_SIZE,PRESSURE_SENSOR_ID);
+  //OutputDataArrays();
 
   switch (rocketStage)
   {
@@ -89,10 +91,12 @@ void OutputDataArrays() {
   if (pressureSensorStatus)
   {
     Serial.print(bmpData[0]);
-    Serial.print(" hPa : ");
+    Serial.print(" ms : ");
     Serial.print(bmpData[1]);
-    Serial.print("C : ");
+    Serial.print(" hPa : ");
     Serial.print(bmpData[2]);
+    Serial.print("C : ");
+    Serial.print(bmpData[3]);
     Serial.println(" m");
   }
 }

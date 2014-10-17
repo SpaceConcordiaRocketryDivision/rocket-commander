@@ -21,9 +21,10 @@ boolean PressureSensor::GetData(float array[])
   {
     float temperature;
     bmp.getTemperature(&temperature);
-    array[0] = event.pressure;
-    array[1] = temperature;
-    array[2] = bmp.pressureToAltitude(seaLevelPressure,
+	array[0] = millis();
+    array[1] = event.pressure;
+    array[2] = temperature;
+    array[3] = bmp.pressureToAltitude(seaLevelPressure,
                                         event.pressure,
                                         temperature);
     return 1; 
