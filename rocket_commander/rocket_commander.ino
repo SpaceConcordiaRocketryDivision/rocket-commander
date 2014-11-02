@@ -52,6 +52,7 @@ void setup() {
 
 void loop() {
   //TODO: switch sensor to output
+  Serial.print("hi");
   pressureSensorStatus = pressureSensor.GetData(bmpData);
   accelerometerStatus = accelerometer.GetData(accelData);  
   gyrometerStatus = gyroscope.GetData(gyroData);
