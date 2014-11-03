@@ -11,6 +11,8 @@
 #define STAGE_THREE 3
 #define STAGE_FOUR 4
 
+#define OUTPUT_EXCEL_ENABLED 0
+
 //Component Id values
 #define PRESSURE_SENSOR_ID 0x50
 #define DOF_SENSOR_ID 0x51
@@ -25,6 +27,9 @@ boolean pressureSensorStatus = 0;
 boolean dofSensorStatus = 0;
 boolean gpsDataStatus = 0;
 
+int samplingRate = 0;
+
+int count = 1;
 // Array for sensors, sizes of each array defined in header for sensor
 float dofData[9] = {0}; //9 channels (accel xyz, mag xyz, heading, 2 unused)
 float gpsData[10] = {0}; // CHANGE to suit number of required data fields
@@ -32,18 +37,27 @@ float bmpData[PRESSURE_ARRAY_SIZE] = {0};  // Pressure Temperature Altitude
 char* currentCommand[] = {'\0'};
 
 int rocketStage = LOCKED_GROUND_STAGE;
-
+float x = .2;
+float oldAlt = 0;
+float filteredAlt;
 void setup() {
   Serial.begin(9600);
-
+  
   pressureSensor.Init();
+  Serial.println("CLEARDATA");
+  Serial.println("LABEL,Time,Alt,AltFiltered,Milis");
 }
 
 void loop() {
-
+ 
   pressureSensorStatus = pressureSensor.GetData(bmpData);
+  
+  #ifdef OUTPUT_EXCEL_ENABLED
+  Serial.print("DATA,TIME,"); Serial.print(bmpData[3]); Serial.print(","); Serial.print(filteredAlt); Serial.print(","); Serial.println(bmpData[0]);
+  #endif
+  
   transceiverModule.SendData(bmpData,PRESSURE_ARRAY_SIZE,PRESSURE_SENSOR_ID);
-  //OutputDataArrays();
+  OutputDataArrays();
 
   switch (rocketStage)
   {
