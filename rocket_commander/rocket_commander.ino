@@ -1,8 +1,9 @@
 #include <PressureSensor.h>
 #include <TransceiverModule.h>
+#include <Accelerometer.h>
+#include <Gyroscope.h>
 
 #include <Wire.h>
-
 
 //Flight Stages of the Rocket
 #define LOCKED_GROUND_STAGE 0
@@ -17,24 +18,33 @@
 #define PRESSURE_SENSOR_ID 0x50
 #define DOF_SENSOR_ID 0x51
 
-
 //Component objects
 PressureSensor pressureSensor;
 TransceiverModule transceiverModule;
+Accelerometer accelerometer;
+Gyroscope gyroscope;
 
 // Status of sensors: 0 = offline, 1 = online
 boolean pressureSensorStatus = 0;
 boolean dofSensorStatus = 0;
+boolean accelerometerStatus = 0; //separate value for each sensor
+boolean gyrometerStatus = 0;
 boolean gpsDataStatus = 0;
 
 int samplingRate = 0;
 
 int count = 1;
 // Array for sensors, sizes of each array defined in header for sensor
-float dofData[9] = {0}; //9 channels (accel xyz, mag xyz, heading, 2 unused)
-float gpsData[10] = {0}; // CHANGE to suit number of required data fields
-float bmpData[PRESSURE_ARRAY_SIZE] = {0};  // Pressure Temperature Altitude
-char* currentCommand[] = {'\0'};
+float accelData[3] = {
+  0}; //x, y, z
+float gyroData[3] = { 
+  0}; //x, y, z
+float gpsData[10] = {
+  0}; // CHANGE to suit number of required data fields
+float bmpData[PRESSURE_ARRAY_SIZE] = {
+  0};  // Pressure Temperature Altitude
+char* currentCommand[] = {
+  '\0'};
 
 int rocketStage = LOCKED_GROUND_STAGE;
 float x = .2;
@@ -42,41 +52,49 @@ float oldAlt = 0;
 float filteredAlt;
 void setup() {
   Serial.begin(9600);
+
   
   pressureSensor.Init();
-  Serial.println("CLEARDATA");
-  Serial.println("LABEL,Time,Alt,AltFiltered,Milis");
+  accelerometer.Init(); //TODO: set up resolution
+  gyroscope.Init(); //TODO: set up resolution
+  
+  #ifdef OUTPUT_EXCEL_ENABLED
+	Serial.println("CLEARDATA");
+	Serial.println("LABEL,Time,Alt,AltFiltered,Milis");
+  #endif
 }
 
 void loop() {
- 
-  pressureSensorStatus = pressureSensor.GetData(bmpData);
-  
+   
   #ifdef OUTPUT_EXCEL_ENABLED
   Serial.print("DATA,TIME,"); Serial.print(bmpData[3]); Serial.print(","); Serial.print(filteredAlt); Serial.print(","); Serial.println(bmpData[0]);
   #endif
   
+  pressureSensorStatus = pressureSensor.GetData(bmpData);
+  accelerometerStatus = accelerometer.GetData(accelData);  
+  gyrometerStatus = gyroscope.GetData(gyroData);
+
   transceiverModule.SendData(bmpData,PRESSURE_ARRAY_SIZE,PRESSURE_SENSOR_ID);
   OutputDataArrays();
 
   switch (rocketStage)
   {
-    case LOCKED_GROUND_STAGE:
-      break;
-    case STAGE_ONE:
-      StageOne();
-      break;
-    case STAGE_TWO:
-      StageTwo();
-      break;
-    case STAGE_THREE:
-      StageThree();
-      break;
-    case STAGE_FOUR:
-      StageFour();
-      break;
-    default:
-      break;
+  case LOCKED_GROUND_STAGE:
+    break;
+  case STAGE_ONE:
+    StageOne();
+    break;
+  case STAGE_TWO:
+    StageTwo();
+    break;
+  case STAGE_THREE:
+    StageThree();
+    break;
+  case STAGE_FOUR:
+    StageFour();
+    break;
+  default:
+    break;
   }
 }
 
@@ -113,4 +131,24 @@ void OutputDataArrays() {
     Serial.print(bmpData[3]);
     Serial.println(" m");
   }
+
+  if (accelerometerStatus)
+  {
+    Serial.print(accelData[0]);
+    Serial.print(" m/s^2 x" );
+    Serial.print(accelData[1]);
+    Serial.print(" m/s^2 y ");
+    Serial.print(accelData[2]);
+    Serial.println(" m/s^2 z ");
+  }
+  if (gyrometerStatus)
+  {
+    Serial.print(accelData[0]);
+    Serial.print(" rad/s x" );
+    Serial.print(accelData[1]);
+    Serial.print(" rad/s y ");
+    Serial.print(accelData[2]);
+    Serial.println(" rad/s z ");
+  }
 }
+
