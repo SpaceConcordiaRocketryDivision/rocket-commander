@@ -48,3 +48,4 @@ void commandMode()
 			if (Serial.read() == '>') break;
 	}
 }
+
