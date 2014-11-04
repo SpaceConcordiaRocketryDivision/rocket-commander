@@ -1,18 +1,18 @@
-
 #ifndef DATALOGGER_H
 #define DATALOGGER_H_G
 
-
 #include <Wire.h>
-
+#include <Arduino.h>
 
 class DataLogger
 {
 	public:
           DataLogger();
-		  boolean GetData (float array[]);
-		  boolean SendData(String deviceID, String array[], int size);
+		  bool GetData (float array[]);
+		  bool SendData(char deviceID, float array[], int size);
           void Init();
+	private:
+		  void CommandMode();
         
         
 };
