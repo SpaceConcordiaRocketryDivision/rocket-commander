@@ -12,8 +12,8 @@ class PressureSensor
 {
 	public:
           PressureSensor();
-		boolean GetData (float array[]);
-          boolean SendData(float pressureToSet);
+		  bool GetData (float array[]);
+          bool SendData(float pressureToSet);
           void Init();
         
         private:
