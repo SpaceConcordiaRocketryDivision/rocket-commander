@@ -8,10 +8,12 @@ class DataLogger
 {
 	public:
           DataLogger();
-		  bool GetData (float array[]);
+		  bool GetData (char array[]);
 		  bool SendData(char deviceID, float array[], int size);
           void Init();
+		  int fileNumber;
 		  char filename[12];
+		  char buff[50];
 	private:
 		  void CommandMode();
         
