@@ -18,9 +18,8 @@ void DataLogger::Init()
 	CommandMode();
 	Serial.println(3);
 	//delay(1000);
-	//sprintf(filename, "log%03d.txt", fileNumber);
 	sprintf(buff, "new data%03d.txt\r", fileNumber);
-	Serial1.println(buff);
+	Serial1.print(buff);
 	Serial.println(4);
 	//delay(1000);
 
@@ -32,7 +31,7 @@ void DataLogger::Init()
 	Serial.println(5);
 	delay(1000);
 	sprintf(buff, "append data%03d.txt\r", fileNumber);
-	Serial1.println(buff);
+	Serial1.print(buff);
 	Serial.println(6);
 	//delay(1000);
 	//Serial.print("append ");
@@ -51,9 +50,12 @@ bool DataLogger::GetData(char array[])
 	CommandMode();
 	Serial.println(9);
 	//delay(5000);
-	sprintf(buff, "read data%03d.txt\r", fileNumber);
-	//Serial1.println();
-	Serial1.println(buff);
+	sprintf(buff, "read data%03d.txt", fileNumber);
+	//Serial1.print("read data001.txt");
+	Serial1.print(buff);
+	Serial1.write(13);
+
+	//The OpenLogger echos any text you send to it, so this makes sure you don't store the command you just sent
 	while (1) {
 		if (Serial1.available())
 			if (Serial1.read() == '\r') break;
@@ -78,10 +80,6 @@ bool DataLogger::GetData(char array[])
 //This assumes the device is already set to append the file, which is set up in the init method. It will stay in append mode until the getData method is called. If you want to be able to switch between reading and writing, I can fix this
 bool DataLogger::SendData(char deviceID, float array[], int size)
 {
-	//CommandMode();
-	
-	
-	//Serial.println("It made it through!!");
 	Serial1.print(deviceID);
 	for (int i = 0; i < size; i++)
 	{
@@ -89,7 +87,6 @@ bool DataLogger::SendData(char deviceID, float array[], int size)
 		Serial1.print(array[i]);
 	}
 	Serial1.println();
-	//CommandMode();
 	return true;
 }
 void DataLogger::CommandMode()
@@ -100,7 +97,8 @@ void DataLogger::CommandMode()
 	delay(50);
 	Serial1.write(26);*/
 	
-	//The device is supposed to go into command mode after you send CTRL+Z to it three times, but the only way I could get it to actually work is by sending it repeatedly until it finally worked
+	//The device is supposed to go into command mode after you send CTRL+Z to it three times, but the only way I could get it to actually work is by sending it repeatedly until it finally worked.
+	//However, I think this makes it print extra CTRL+Z's and that is probably what causes the other errors
 	while (1) {
 		Serial1.write(26);
 		//delay(2);
