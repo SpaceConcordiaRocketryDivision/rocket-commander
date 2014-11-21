@@ -6,36 +6,22 @@ DataLogger::DataLogger()
 }
 void DataLogger::Init()
 {
-	Serial.begin(9600);
-	Serial1.begin(9600);
+	Serial.begin(115200);
+	Serial1.begin(115200);
 	delay(1000);
-	Serial.println(1);
-	//delay(1000);
-	//fileNumber = 1;
 	fileNumber = random(999);
-	Serial.println(2);
-	//delay(1000);
 	CommandMode();
-	Serial.println(3);
-	//delay(1000);
 	sprintf(buff, "new data%03d.txt\r", fileNumber);
 	Serial1.print(buff);
-	Serial.println(4);
-	//delay(1000);
 
 	//Wait for OpenLog to return to waiting for a command
 	while (1) {
 		if (Serial1.available())
 			if (Serial1.read() == '>') break;
 	}
-	Serial.println(5);
-	delay(1000);
+
 	sprintf(buff, "append data%03d.txt\r", fileNumber);
 	Serial1.print(buff);
-	Serial.println(6);
-	//delay(1000);
-	//Serial.print("append ");
-	//Serial.println(filename);
 	
 	//Wait for OpenLog to indicate file is open and ready for writing
 	while (1) {
@@ -77,7 +63,6 @@ bool DataLogger::GetData(char array[])
 	return true;
 }
 
-//This assumes the device is already set to append the file, which is set up in the init method. It will stay in append mode until the getData method is called. If you want to be able to switch between reading and writing, I can fix this
 bool DataLogger::SendData(char deviceID, float array[], int size)
 {
 	Serial1.print(deviceID);
@@ -91,20 +76,14 @@ bool DataLogger::SendData(char deviceID, float array[], int size)
 }
 void DataLogger::CommandMode()
 {
-	/*Serial1.write(26);
-	delay(50);
-	Serial1.write(26);
-	delay(50);
-	Serial1.write(26);*/
-	
 	//The device is supposed to go into command mode after you send CTRL+Z to it three times, but the only way I could get it to actually work is by sending it repeatedly until it finally worked.
-	//However, I think this makes it print extra CTRL+Z's and that is probably what causes the other errors
+	//However, I think this makes it print extra CTRL+Z's and that is probably what causes the errors for the get method
+	//At higher baud rates it does seem to work with just three, but it only works the first time. So the same issues happen for the get method
+	Serial1.write(26);
+	Serial1.write(26);
+	Serial1.write(26);
 	while (1) {
-		Serial1.write(26);
-		//delay(2);
 		if (Serial1.available())
 			if (Serial1.read() == '>') break;
-		//delay(100);
 	}
-	//delay(1000);
 }
