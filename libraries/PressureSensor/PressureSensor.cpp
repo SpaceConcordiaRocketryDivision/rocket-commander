@@ -4,7 +4,6 @@ PressureSensor::PressureSensor()
 {
   Adafruit_BMP085_Unified bmp = Adafruit_BMP085_Unified(10085);
   seaLevelPressure = SENSORS_PRESSURE_SEALEVELHPA;
-
 }
 void PressureSensor::Init()
 {

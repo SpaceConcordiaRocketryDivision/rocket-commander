@@ -11,14 +11,14 @@
 class PressureSensor
 {
 	public:
-          PressureSensor();
-		  bool GetData (float array[]);
-          bool SendData(float pressureToSet);
-          void Init();
+		PressureSensor();
+		bool GetData (float array[]);
+        bool SendData(float pressureToSet);
+        void Init();
         
-        private:
-          Adafruit_BMP085_Unified bmp;
-          sensors_event_t event;
-          float seaLevelPressure;
+	private:
+        Adafruit_BMP085_Unified bmp;
+        sensors_event_t event;
+        float seaLevelPressure;
 };
 #endif

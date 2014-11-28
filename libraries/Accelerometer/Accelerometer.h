@@ -9,7 +9,7 @@ class Accelerometer
 {
   public:
     Accelerometer();
-	  boolean GetData(float array[]);
+	boolean GetData(float array[]);
     void Init();
         
   private:

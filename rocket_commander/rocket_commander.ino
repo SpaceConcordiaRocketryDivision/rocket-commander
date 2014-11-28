@@ -2,6 +2,7 @@
 #include <TransceiverModule.h>
 #include <Accelerometer.h>
 #include <Gyroscope.h>
+#include <GpsSensor.h>
 
 #include <Wire.h>
 
@@ -17,19 +18,21 @@
 //Component Id values
 #define PRESSURE_SENSOR_ID 0x50
 #define DOF_SENSOR_ID 0x51
+#define GPS_SENSOR_ID 0x52
 
 //Component objects
 PressureSensor pressureSensor;
 TransceiverModule transceiverModule;
 Accelerometer accelerometer;
 Gyroscope gyroscope;
+GpsSensor gps;
 
 // Status of sensors: 0 = offline, 1 = online
 boolean pressureSensorStatus = 0;
 boolean dofSensorStatus = 0;
 boolean accelerometerStatus = 0; //separate value for each sensor
 boolean gyrometerStatus = 0;
-boolean gpsDataStatus = 0;
+boolean gpsStatus = 0;
 
 int samplingRate = 0;
 
@@ -39,7 +42,7 @@ float accelData[3] = {
   0}; //x, y, z
 float gyroData[3] = { 
   0}; //x, y, z
-float gpsData[10] = {
+float gpsData[8] = {
   0}; // CHANGE to suit number of required data fields
 float bmpData[PRESSURE_ARRAY_SIZE] = {
   0};  // Pressure Temperature Altitude
@@ -52,11 +55,11 @@ float oldAlt = 0;
 float filteredAlt;
 void setup() {
   Serial.begin(9600);
-
-  
+ 
   pressureSensor.Init();
   accelerometer.Init(); //TODO: set up resolution
   gyroscope.Init(); //TODO: set up resolution
+  gps.Init();
   
   #ifdef OUTPUT_EXCEL_ENABLED
 	Serial.println("CLEARDATA");
@@ -73,6 +76,7 @@ void loop() {
   pressureSensorStatus = pressureSensor.GetData(bmpData);
   accelerometerStatus = accelerometer.GetData(accelData);  
   gyrometerStatus = gyroscope.GetData(gyroData);
+  gpsStatus = gps.GetData(gpsData);
 
   transceiverModule.SendData(bmpData,PRESSURE_ARRAY_SIZE,PRESSURE_SENSOR_ID);
   OutputDataArrays();
@@ -149,6 +153,17 @@ void OutputDataArrays() {
     Serial.print(" rad/s y ");
     Serial.print(accelData[2]);
     Serial.println(" rad/s z ");
+  }
+  if (gpsStatus)
+  {
+    Serial.print(gpsData[0]); 
+    Serial.print(gpsData[1]);
+    Serial.print(gpsData[2]);
+    Serial.print(gpsData[3]);
+    Serial.print(gpsData[4]); 
+    Serial.print(gpsData[5]);
+    Serial.print(gpsData[6]);
+    Serial.print(gpsData[7]);
   }
 }
 
