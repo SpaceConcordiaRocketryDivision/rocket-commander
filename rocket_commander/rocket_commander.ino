@@ -156,14 +156,20 @@ void OutputDataArrays() {
   }
   if (gpsStatus)
   {
-    Serial.print(gpsData[0]); 
+    //Serial.print(gpsData[0]);
     Serial.print(gpsData[1]);
-    Serial.print(gpsData[2]);
-    Serial.print(gpsData[3]);
-    Serial.print(gpsData[4]); 
-    Serial.print(gpsData[5]);
-    Serial.print(gpsData[6]);
-    Serial.print(gpsData[7]);
+    Serial.print("Latitude: ");
+    Serial.println(gpsData[2]);
+    Serial.print("Longitude: ");
+    Serial.println(gpsData[3]);
+    Serial.print("Fix quality: ");
+    Serial.println(gpsData[4]); 
+    Serial.print("Satellites: ");
+    Serial.println(gpsData[5]);
+    Serial.print("Altitude: ");
+    Serial.println(gpsData[6]);
+    Serial.print("Speed: ");
+    Serial.println(gpsData[7]); // Unsure about units
   }
 }
 
