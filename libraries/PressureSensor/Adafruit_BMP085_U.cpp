@@ -136,7 +136,7 @@ static void readCoefficients(void)
     _bmp085_coeffs.mb  = -32768;
     _bmp085_coeffs.mc  = -8711;
     _bmp085_coeffs.md  = 2868;
-    _bmp085Mode        = 0;
+    _bmp085Mode        = 3;
   #else
     readS16(BMP085_REGISTER_CAL_AC1, &_bmp085_coeffs.ac1);
     readS16(BMP085_REGISTER_CAL_AC2, &_bmp085_coeffs.ac2);
@@ -183,8 +183,9 @@ static void readRawPressure(int32_t *pressure)
     uint8_t  p8;
     uint16_t p16;
     int32_t  p32;
-
+	
     writeCommand(BMP085_REGISTER_CONTROL, BMP085_REGISTER_READPRESSURECMD + (_bmp085Mode << 6));
+
     switch(_bmp085Mode)
     {
       case BMP085_MODE_ULTRALOWPOWER:
@@ -264,7 +265,6 @@ bool Adafruit_BMP085_Unified::begin(bmp085_mode_t mode)
   {
     return false;
   }
-
   /* Set the mode indicator */
   _bmp085Mode = mode;
 

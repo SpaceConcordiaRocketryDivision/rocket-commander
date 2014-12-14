@@ -2,9 +2,11 @@
 #include <TransceiverModule.h>
 #include <Accelerometer.h>
 #include <Gyroscope.h>
-#include <GpsSensor.h>
+//#include <GpsSensor.h>
 
 #include <Wire.h>
+
+#define SIMULATION
 
 //Flight Stages of the Rocket
 #define LOCKED_GROUND_STAGE 0
@@ -13,19 +15,27 @@
 #define STAGE_THREE 3
 #define STAGE_FOUR 4
 
-#define OUTPUT_EXCEL_ENABLED 0
+//#define OUTPUT_EXCEL_ENABLED 0
 
 //Component Id values
 #define PRESSURE_SENSOR_ID 0x50
 #define DOF_SENSOR_ID 0x51
 #define GPS_SENSOR_ID 0x52
 
+
+
+//Kalman Filter Macro
+#define MEASUREMENTSIGMA 0.44
+#define MODELSIGMA 0.002
+#define MEASUREMENTVARIANCE MEASUREMENTSIGMA*MEASUREMENTSIGMA
+#define MODELVARIANCE MODELSIGMA*MODELSIGMA
+
 //Component objects
 PressureSensor pressureSensor;
-TransceiverModule transceiverModule;
-Accelerometer accelerometer;
-Gyroscope gyroscope;
-GpsSensor gps;
+//TransceiverModule transceiverModule;
+//Accelerometer accelerometer;
+//Gyroscope gyroscope;
+//GpsSensor gps;
 
 // Status of sensors: 0 = offline, 1 = online
 boolean pressureSensorStatus = 0;
@@ -34,6 +44,16 @@ boolean accelerometerStatus = 0; //separate value for each sensor
 boolean gyrometerStatus = 0;
 boolean gpsStatus = 0;
 
+//Kalman Filter Variables
+float gain[3] = { 0.010317, 0.010666, 0.004522 };
+float est[3] = { 0, 0, 0 };
+float estp[3] = {0, 0, 0 };
+float phi[3][3] = { 1, 0, 0,
+                      0, 1, 0,
+	              0, 0, 1.0 };
+float phit[3][3] = { 1, 0, 0,
+	               0, 1, 0,
+	               0, 0, 1.0 };
 int samplingRate = 0;
 
 int count = 1;
@@ -50,16 +70,15 @@ char* currentCommand[] = {
   '\0'};
 
 int rocketStage = LOCKED_GROUND_STAGE;
-float x = .2;
+float x = .2; 
 float oldAlt = 0;
 float filteredAlt;
 void setup() {
-  Serial.begin(9600);
- 
+  Serial.begin(115200);
   pressureSensor.Init();
-  accelerometer.Init(); //TODO: set up resolution
-  gyroscope.Init(); //TODO: set up resolution
-  gps.Init();
+  //accelerometer.Init(); //TODO: set up resolution
+  //gyroscope.Init(); //TODO: set up resolution
+ // gps.Init();
   
   #ifdef OUTPUT_EXCEL_ENABLED
 	Serial.println("CLEARDATA");
@@ -74,11 +93,10 @@ void loop() {
   #endif
   
   pressureSensorStatus = pressureSensor.GetData(bmpData);
-  accelerometerStatus = accelerometer.GetData(accelData);  
-  gyrometerStatus = gyroscope.GetData(gyroData);
-  gpsStatus = gps.GetData(gpsData);
-
-  transceiverModule.SendData(bmpData,PRESSURE_ARRAY_SIZE,PRESSURE_SENSOR_ID);
+ // accelerometerStatus = accelerometer.GetData(accelData);  
+  //gyrometerStatus = gyroscope.GetData(gyroData);
+ // gpsStatus = gps.GetData(gpsData);
+  //transceiverModule.SendData(bmpData,PRESSURE_ARRAY_SIZE,PRESSURE_SENSOR_ID);
   OutputDataArrays();
 
   switch (rocketStage)
@@ -101,7 +119,30 @@ void loop() {
     break;
   }
 }
+void CalculateKalmanGain()
+{
+  float dt = 7/1000;
 
+  phi[0][1] = dt;
+  phi[1][2] = dt;
+  phi[0][2] = dt*dt/2.0;
+  phit[1][0] = dt;
+  phit[2][1] = dt;
+  phit[2][0] = dt*dt/2.0;
+  
+
+  
+}
+void FilterPressure()
+{
+  estp[0] = phi[0][0] * est[0] + phi[0][1] * est[1] + phi[0][2] * est[2];
+  estp[1] = phi[1][0] * est[0] + phi[1][1] * est[1] + phi[1][2] * est[2];
+  estp[2] = phi[2][0] * est[0] + phi[2][1] * est[1] + phi[2][2] * est[2];
+  
+  est[0] = estp[0] + gain[0] * (bmpData[3] - estp[0]);
+  est[1] = estp[1] + gain[1] * (bmpData[3] - estp[0]);
+  est[2] = estp[2] + gain[2] * (bmpData[3] - estp[0]);
+}
 void StageOne()
 {
   if (1)
@@ -126,14 +167,25 @@ void StageFour()
 void OutputDataArrays() {
   if (pressureSensorStatus)
   {
-    Serial.print(bmpData[0]);
-    Serial.print(" ms : ");
-    Serial.print(bmpData[1]);
-    Serial.print(" hPa : ");
-    Serial.print(bmpData[2]);
-    Serial.print("C : ");
-    Serial.print(bmpData[3]);
-    Serial.println(" m");
+    #ifndef SIMULATION 
+      Serial.print(bmpData[0]);
+      Serial.print(" ms : ");
+      Serial.print(bmpData[1]);
+      Serial.print(" hPa : ");
+      Serial.print(bmpData[2]);
+      Serial.print("C : ");
+      Serial.print(bmpData[3]);
+      Serial.println(" m");
+    #else
+      Serial.print(bmpData[0]);
+      Serial.print(" ms : ");
+      Serial.print(bmpData[1]);
+      Serial.print(" m/s : ");
+      Serial.print(bmpData[2]);
+      Serial.print(" m/s^2 : ");
+      Serial.print(bmpData[3]);
+      Serial.println(" m");
+    #endif
   }
 
   if (accelerometerStatus)
