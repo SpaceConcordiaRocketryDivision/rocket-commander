@@ -5,9 +5,9 @@ TransceiverModule::TransceiverModule()
 {
 	Serial.begin(9600);
 }
-void TransceiverModule::Init()
+void TransceiverModule::Init(char transceiverId)
 {
-
+	this->transceiverId = transceiverId;
 }
 boolean TransceiverModule::GetData(char* currentCommand[] , int maxArraySize)
 {
@@ -25,6 +25,11 @@ boolean TransceiverModule::SendData(float arrayToSend[],int arraySize, char comp
 {
   if(Serial)
   {
+	  Serial.print(START_BYTE);
+	  Serial.print(":");
+	  Serial.print(transceiverId);
+      Serial.print(":");
+	  Serial.print(componentId);
 	  Serial.print(componentId);
 	  Serial.print(":");
 	  Serial.print((long)arrayToSend[0]);
@@ -33,7 +38,7 @@ boolean TransceiverModule::SendData(float arrayToSend[],int arraySize, char comp
 	    Serial.print(":");
 		Serial.print(arrayToSend[i]);
 	  }
-	  Serial.println();
+	  Serial.println(END_BYTE);
 	  return 1;
   }
   return 0;

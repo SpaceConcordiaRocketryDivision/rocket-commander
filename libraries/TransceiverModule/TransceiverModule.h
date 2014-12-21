@@ -1,6 +1,9 @@
 #ifndef TRANSCEIVERMODULE_H
 #define TRANSCEIVERMODULE_H
 
+#define START_BYTE 0xFF
+#define END_BYTE 0XFE
+
 #include "Arduino.h"
 #include <String.h>
 class TransceiverModule
@@ -9,7 +12,10 @@ class TransceiverModule
           TransceiverModule();
 		  boolean GetData (char* currentCommand[] ,int maxArraySize);
           boolean SendData(float arrayToSend[],int arraySize,char componentId);
-          void Init();
+          void Init(char transceiverId);
+		  
+		  
+		  char transceiverId;
         
 
 };
