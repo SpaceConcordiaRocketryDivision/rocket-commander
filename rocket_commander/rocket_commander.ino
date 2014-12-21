@@ -45,7 +45,7 @@ boolean gyrometerStatus = 0;
 boolean gpsStatus = 0;
 
 //Kalman Filter Variables
-float gain[3] = { 0.010317, 0.010666, 0.004522 };
+float gain[3] = { 0.10f, 0.010666, 0.004522 };
 float est[3] = { 0, 0, 0 };
 float estp[3] = {0, 0, 0 };
 float phi[3][3] = { 1, 0, 0,
@@ -54,7 +54,16 @@ float phi[3][3] = { 1, 0, 0,
 float phit[3][3] = { 1, 0, 0,
 	               0, 1, 0,
 	               0, 0, 1.0 };
+float pest[3][3] = { 0.002, 0, 0,
+0, 0.004, 0,
+0, 0, 0.002 };
+float pestp[3][3] = { 0, 0, 0,
+0, 0, 0,
+0, 0, 0 };
+float term[3][3];
 int samplingRate = 0;
+
+float apogee_time = 0.0f;
 
 int count = 1;
 // Array for sensors, sizes of each array defined in header for sensor
@@ -93,6 +102,10 @@ void loop() {
   #endif
   
   pressureSensorStatus = pressureSensor.GetData(bmpData);
+  //FilterPressure();
+  if ( apogee_time == 0.0f && bmpData[1] < 0.0f && bmpData[3] > 10.0f)
+    apogee_time = bmpData[0];
+  
  // accelerometerStatus = accelerometer.GetData(accelData);  
   //gyrometerStatus = gyroscope.GetData(gyroData);
  // gpsStatus = gps.GetData(gpsData);
@@ -130,11 +143,41 @@ void CalculateKalmanGain()
   phit[2][1] = dt;
   phit[2][0] = dt*dt/2.0;
   
+  term[0][0] = phi[0][0] * pest[0][0] + phi[0][1] * pest[1][0] + phi[0][2] * pest[2][0];
+  term[0][1] = phi[0][0] * pest[0][1] + phi[0][1] * pest[1][1] + phi[0][2] * pest[2][1];
+  term[0][2] = phi[0][0] * pest[0][2] + phi[0][1] * pest[1][2] + phi[0][2] * pest[2][2];
+  term[1][0] = phi[1][0] * pest[0][0] + phi[1][1] * pest[1][0] + phi[1][2] * pest[2][0];
+  term[1][1] = phi[1][0] * pest[0][1] + phi[1][1] * pest[1][1] + phi[1][2] * pest[2][1];
+  term[1][2] = phi[1][0] * pest[0][2] + phi[1][1] * pest[1][2] + phi[1][2] * pest[2][2];
+  term[2][0] = phi[2][0] * pest[0][0] + phi[2][1] * pest[1][0] + phi[2][2] * pest[2][0];
+  term[2][1] = phi[2][0] * pest[0][1] + phi[2][1] * pest[1][1] + phi[2][2] * pest[2][1];
+  term[2][2] = phi[2][0] * pest[0][2] + phi[2][1] * pest[1][2] + phi[2][2] * pest[2][2];
+
+  pestp[0][0] = term[0][0] * phit[0][0] + term[0][1] * phit[1][0] + term[0][2] * phit[2][0];
+  pestp[0][1] = term[0][0] * phit[0][1] + term[0][1] * phit[1][1] + term[0][2] * phit[2][1];
+  pestp[0][2] = term[0][0] * phit[0][2] + term[0][1] * phit[1][2] + term[0][2] * phit[2][2];
+  pestp[1][0] = term[1][0] * phit[0][0] + term[1][1] * phit[1][0] + term[1][2] * phit[2][0];
+  pestp[1][1] = term[1][0] * phit[0][1] + term[1][1] * phit[1][1] + term[1][2] * phit[2][1];
+  pestp[1][2] = term[1][0] * phit[0][2] + term[1][1] * phit[1][2] + term[1][2] * phit[2][2];
+  pestp[2][0] = term[2][0] * phit[0][0] + term[2][1] * phit[1][0] + term[2][2] * phit[2][0];
+  pestp[2][1] = term[2][0] * phit[0][1] + term[2][1] * phit[1][1] + term[2][2] * phit[2][1];
+  pestp[2][2] = term[2][0] * phit[0][2] + term[2][1] * phit[1][2] + term[2][2] * phit[2][2];
+  pestp[0][0] = pestp[0][0] + MODELVARIANCE;
 
   
 }
 void FilterPressure()
 {
+  float dt = 5.0f/1000.0f;
+
+  phi[0][1] = dt;
+  phi[1][2] = dt;
+  phi[0][2] = dt*dt/2.0;
+  phit[1][0] = dt;
+  phit[2][1] = dt;
+  phit[2][0] = dt*dt/2.0;
+  
+  /* Propagate state */
   estp[0] = phi[0][0] * est[0] + phi[0][1] * est[1] + phi[0][2] * est[2];
   estp[1] = phi[1][0] * est[0] + phi[1][1] * est[1] + phi[1][2] * est[2];
   estp[2] = phi[2][0] * est[0] + phi[2][1] * est[1] + phi[2][2] * est[2];
@@ -142,6 +185,10 @@ void FilterPressure()
   est[0] = estp[0] + gain[0] * (bmpData[3] - estp[0]);
   est[1] = estp[1] + gain[1] * (bmpData[3] - estp[0]);
   est[2] = estp[2] + gain[2] * (bmpData[3] - estp[0]);
+  
+  bmpData[1] = est[1];
+  bmpData[2] = est[2];
+  bmpData[3] = est[0];
 }
 void StageOne()
 {
@@ -187,7 +234,12 @@ void OutputDataArrays() {
       Serial.println(" m");
     #endif
   }
-
+  else if (apogee_time != -1.0f)
+  {
+    Serial.print("Filtered apogee is at ");
+    Serial.println(apogee_time);
+    apogee_time = -1.0f;
+  }
   if (accelerometerStatus)
   {
     Serial.print(accelData[0]);
