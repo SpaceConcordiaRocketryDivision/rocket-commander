@@ -281,12 +281,20 @@ bool Adafruit_BMP085_Unified::begin(bmp085_mode_t mode)
 /**************************************************************************/
 void Adafruit_BMP085_Unified::getPressure(float *pressure)
 {
-  int32_t  ut = 0, up = 0, compp = 0;
+  static int32_t  ut = 0;
+  int32_t up = 0, compp = 0;
   int32_t  x1, x2, b5, b6, x3, b3, p;
   uint32_t b4, b7;
+  static int count = 0;
 
   /* Get the raw pressure and temperature values */
-  readRawTemperature(&ut);
+  if (count == 4)
+  {
+	  count = 0;
+	  readRawTemperature(&ut);
+  }
+  else
+	  count++;
   readRawPressure(&up);
 
   /* Temperature compensation */

@@ -3,7 +3,6 @@
 Gyroscope::Gyroscope()
 {
   Adafruit_L3GD20_Unified gyro = Adafruit_L3GD20_Unified(00002);
-
 }
 void Gyroscope::Init()
 {
@@ -14,13 +13,13 @@ void Gyroscope::Init()
 }
 boolean Gyroscope::GetData(float array[])
 {
-  sensors_event_t event;
-  gyro.getEvent(&event);
+	sensors_event_t event;
+	gyro.getEvent(&event);
 
-  //TODO: event if
-	array[0] = event.gyro.x;
-	array[1] = event.gyro.y;
-	array[2] = event.gyro.z;
+	array[0] = millis();
+	array[1] = event.gyro.x;
+	array[2] = event.gyro.y;
+	array[3] = event.gyro.z;
 
-  return 1;
+	return 1;
 }

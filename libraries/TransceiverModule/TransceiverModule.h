@@ -10,8 +10,8 @@ class TransceiverModule
 {
 	public:
           TransceiverModule();
-		  boolean GetData (char* currentCommand[] ,int maxArraySize);
-          boolean SendData(float arrayToSend[],int arraySize,char componentId);
+		  boolean GetData (char currentCommand[] ,int maxArraySize);
+		  boolean SendData(float arrayToSend[], int arraySize, char commandId, char rocketStage);
           void Init(char transceiverId);
 		  
 		  

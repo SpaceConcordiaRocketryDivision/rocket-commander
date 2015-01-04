@@ -3,7 +3,6 @@
 #define PRESSURESENSOR_H
 #define PRESSURE_ARRAY_SIZE 4
 
-#define SIMULATION
 
 #include <Wire.h>
 #include <Adafruit_Sensor.h>

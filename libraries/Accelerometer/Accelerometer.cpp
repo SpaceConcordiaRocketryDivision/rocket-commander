@@ -18,9 +18,10 @@ boolean Accelerometer::GetData(float array[])
   accel.getEvent(&event);
 
   //TODO: event if
-	array[0] = event.acceleration.x;
-	array[1] = event.acceleration.y;
-	array[2] = event.acceleration.z;
+	array[0] = millis();
+	array[1] = event.acceleration.x;
+	array[2] = event.acceleration.y;
+	array[3] = event.acceleration.z;
 
   return 1;
 }

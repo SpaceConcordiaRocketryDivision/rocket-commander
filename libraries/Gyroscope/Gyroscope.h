@@ -1,6 +1,8 @@
 #ifndef GYROSCOPE_H
 #define GYROSCOPE_H
 
+#define GYROSCOPE_ARRAY_SIZE 4
+
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_L3GD20_U.h>
