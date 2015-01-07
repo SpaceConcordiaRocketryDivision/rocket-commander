@@ -15,7 +15,7 @@ boolean TransceiverModule::GetData(char currentCommand[] , int maxArraySize)
 	{
 		delay(3);
 		int arraySize = 0;
-		while (Serial.available() > 0 && arraySize < maxArraySize ) {
+		while (Serial.available() > 0 && arraySize < maxArraySize) {
 			
 			currentCommand[arraySize++] = (char)Serial.read();
 		}
@@ -25,8 +25,6 @@ boolean TransceiverModule::GetData(char currentCommand[] , int maxArraySize)
 }
 boolean TransceiverModule::SendData(float arrayToSend[],int arraySize, char commandId, char rocketStage )
 {
-  if(Serial)
-  {
 	  Serial.print(START_BYTE);
 	  Serial.print(":");
 	  Serial.print(transceiverId);
@@ -46,6 +44,4 @@ boolean TransceiverModule::SendData(float arrayToSend[],int arraySize, char comm
 	  Serial.print(":");
 	  Serial.println(END_BYTE);
 	  return 1;
-  }
-  return 0;
 }

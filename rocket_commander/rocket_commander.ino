@@ -3,10 +3,11 @@
 #include <Accelerometer.h>
 #include <Gyroscope.h>
 
+#include <SoftwareSerial.h>
 #include <Wire.h>
 
 // ifdef to enable or disable pieces of code for debugging
-#define SIMULATION
+//#define SIMULATION
 #define TRANSCIEVER_ENABLED
 
 //Flight Stages of the Rocket
@@ -31,6 +32,8 @@
 #define MODELSIGMA 0.002
 #define MEASUREMENTVARIANCE MEASUREMENTSIGMA*MEASUREMENTSIGMA
 #define MODELVARIANCE MODELSIGMA*MODELSIGMA
+
+SoftwareSerial mySerial(2,3);
 
 //Component objects
 PressureSensor pressureSensor;
@@ -82,16 +85,19 @@ float bmpData[PRESSURE_ARRAY_SIZE] = {
   0};  // Pressure Temperature Altitude
   
 
-  
+bool simulationOn = 0;  
 int bandCount = 0;
+long transcieverCount = 0;
 
-int rocketStage = LOCKED_GROUND_STAGE;
+int rocketStage = 0;
 float x = .2; 
 float oldAlt = 0;
 float filteredAlt;
+
+float timeLength = 0;
 void setup() {
+  mySerial.begin(115200);
   Serial.begin(115200);
-  
   pinMode(7,OUTPUT);
   
   pressureSensor.Init();
@@ -103,58 +109,57 @@ void setup() {
 	Serial.println("CLEARDATA");
 	Serial.println("LABEL,Time,Alt,AltFiltered,Milis");
   #endif
+  
 }
 
 void loop() { 
    char currentCommand[25] = {
   '\0'};
-  
   #ifdef OUTPUT_EXCEL_ENABLED
   Serial.print("DATA,TIME,"); Serial.print(bmpData[3]); Serial.print(","); Serial.print(filteredAlt); Serial.print(","); Serial.println(bmpData[0]);
   #endif
   
-  #ifdef SIMULATION
+  if (simulationOn)
     SimulateValues();
-  #else
+  else
+  {
     pressureSensorStatus = pressureSensor.GetData(bmpData);
     accelerometerStatus = accelerometer.GetData(accelData);
-  #endif 
+    //gyrometerStatus = gyroscope.GetData(gyroData);
+    if ( bandCount == 10 )
+      pressureSensor.SendData(bmpData[1]);
+  } 
   
   FilterPressure();
 
-  //gyrometerStatus = gyroscope.GetData(gyroData);
+
   #ifdef TRANSCIEVER_ENABLED
-  delay(5);
-   if (bandCount % 25 == 0 )
+
+   if (transcieverCount * 1000 < millis() ) // every
    {
+     transcieverCount++;
      if (pressureSensorStatus)
        transceiverModule.SendData(bmpData,PRESSURE_ARRAY_SIZE,PRESSURE_SENSOR_ID, (char)(((int)'0') + rocketStage));
-     if ( bandCount % 50 == 0 )
-     {
-       if (accelerometerStatus)
+     if (accelerometerStatus)
          transceiverModule.SendData(accelData,ACCELEROMETER_ARRAY_SIZE,DOF_SENSOR_ID, (char)(((int)'0') + rocketStage));
-       if (gyrometerStatus)
+     if (gyrometerStatus)
          transceiverModule.SendData(gyroData,GYROSCOPE_ARRAY_SIZE,GYRO_SENSOR_ID, (char)(((int)'0') + rocketStage));
-     }
    }
-   
+
    
    #endif
   bandCount++;
   
-  commandRecieved = transceiverModule.GetData(currentCommand,25);
-  if ( commandRecieved )
+  if ( transceiverModule.GetData(currentCommand,25) && currentCommand[0] == (char)START_BYTE )
   {
-    for ( int i = 0; i < 25; i++ )
-      Serial.println((int)currentCommand[i]);
-    commandRecieved = 0 ;
-  }
-  if ( currentCommand[0] == (char)START_BYTE )
-  {
-    if ( currentCommand[7] == 'U' && currentCommand[8] == 'U' && currentCommand[12] == 'S' && currentCommand[13] == '1' )
+    if ( currentCommand[7] == 'U' && currentCommand[8] == 'U' && currentCommand[12] == 'S' && currentCommand[13] == '1' ) // Put rocket-commander in stage one(unlocked)
       rocketStage = STAGE_ONE;
-    else if ( currentCommand[7] == 'L' && currentCommand[8] == 'L' && currentCommand[12] == 'S' && currentCommand[13] == '0' )
+    else if ( currentCommand[7] == 'L' && currentCommand[8] == 'L' && currentCommand[12] == 'S' && currentCommand[13] == '0' ) // Put rocket-commander in stage zero (locked)
       rocketStage = LOCKED_GROUND_STAGE;
+    else if ( currentCommand[7] == 'S' && currentCommand[8] == 'M' && currentCommand[12] == 'S' && currentCommand[13] == '1' ) // Put rocket-commander in simulation mode
+      simulationOn = 1;
+    else if ( currentCommand[7] == 'S' && currentCommand[8] == 'M' && currentCommand[12] == 'S' && currentCommand[13] == '0' ) // Turn simulation mode off for rocket-commander
+      simulationOn = 0;
   }
  // OutputDataArrays();
   switch (rocketStage)
@@ -354,6 +359,7 @@ void SimulateValues()
   static float standard_deviation_alt = 1.0f;
   if (!simulation_done && rocketStage > 0)
   {
+    delay(5);
     //dt = millis() / 1000.0f - actual_millis;
       dt = 5.0f/1000.0f;
       //Serial.println(dt * 1000.0f);

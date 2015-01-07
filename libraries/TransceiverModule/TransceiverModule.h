@@ -6,14 +6,14 @@
 
 #include "Arduino.h"
 #include <String.h>
+
 class TransceiverModule
 {
 	public:
           TransceiverModule();
 		  boolean GetData (char currentCommand[] ,int maxArraySize);
 		  boolean SendData(float arrayToSend[], int arraySize, char commandId, char rocketStage);
-          void Init(char transceiverId);
-		  
+		  void Init(char transceiverId);
 		  
 		  char transceiverId;
         
