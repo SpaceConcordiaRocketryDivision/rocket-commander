@@ -289,6 +289,7 @@ void Adafruit_BMP085_Unified::getPressure(float *pressure)
 
   /* Get the raw pressure and temperature values */
   if (count == 4)
+  
   {
 	  count = 0;
 	  readRawTemperature(&ut);
@@ -329,7 +330,77 @@ void Adafruit_BMP085_Unified::getPressure(float *pressure)
   /* Assign compensated pressure value */
   *pressure = compp;
 }
+void Adafruit_BMP085_Unified::getPressureAndPressure(float *pressure, float *temp)
+{
+	static int32_t  ut = 0;
+	int32_t up = 0, compp = 0;
+	int32_t  x1, x2, b5, b6, x3, b3, p;
+	uint32_t b4, b7;
+	static int count = 0;
 
+	/* Get the raw pressure and temperature values */
+	if (count == 4)
+
+	{
+		count = 0;
+		readRawTemperature(&ut);
+	}
+	else
+		count++;
+	readRawPressure(&up);
+
+	/* Temperature compensation */
+	b5 = computeB5(ut);
+
+	/* Pressure compensation */
+	b6 = b5 - 4000;
+	x1 = (_bmp085_coeffs.b2 * ((b6 * b6) >> 12)) >> 11;
+	x2 = (_bmp085_coeffs.ac2 * b6) >> 11;
+	x3 = x1 + x2;
+	b3 = (((((int32_t)_bmp085_coeffs.ac1) * 4 + x3) << _bmp085Mode) + 2) >> 2;
+	x1 = (_bmp085_coeffs.ac3 * b6) >> 13;
+	x2 = (_bmp085_coeffs.b1 * ((b6 * b6) >> 12)) >> 16;
+	x3 = ((x1 + x2) + 2) >> 2;
+	b4 = (_bmp085_coeffs.ac4 * (uint32_t)(x3 + 32768)) >> 15;
+	b7 = ((uint32_t)(up - b3) * (50000 >> _bmp085Mode));
+
+	if (b7 < 0x80000000)
+	{
+		p = (b7 << 1) / b4;
+	}
+	else
+	{
+		p = (b7 / b4) << 1;
+	}
+
+	x1 = (p >> 8) * (p >> 8);
+	x1 = (x1 * 3038) >> 16;
+	x2 = (-7357 * p) >> 16;
+	compp = p + ((x1 + x2 + 3791) >> 4);
+
+	/* Assign compensated pressure value */
+	*pressure = compp /100.0f;
+
+	int32_t UT, X1, X2, B5;     // following ds convention
+	float t;
+
+	UT = ut;
+
+	#if BMP085_USE_DATASHEET_VALS
+		// use datasheet numbers!
+		UT = 27898;
+		_bmp085_coeffs.ac6 = 23153;
+		_bmp085_coeffs.ac5 = 32757;
+		_bmp085_coeffs.mc = -8711;
+		_bmp085_coeffs.md = 2868;
+	#endif
+
+	B5 = computeB5(UT);
+	t = (B5 + 8) >> 4;
+	t /= 10;
+
+	*temp = t;
+}
 /**************************************************************************/
 /*!
     @brief  Reads the temperatures in degrees Celsius
@@ -442,3 +513,5 @@ void Adafruit_BMP085_Unified::getEvent(sensors_event_t *event)
   getPressure(&pressure_kPa);
   event->pressure = pressure_kPa / 100.0F;
 }
+
+

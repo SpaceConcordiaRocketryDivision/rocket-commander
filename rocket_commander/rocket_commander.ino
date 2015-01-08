@@ -25,7 +25,7 @@
 #define DOF_SENSOR_ID 0x41
 #define GYRO_SENSOR_ID 0x47
 #define GPS_SENSOR_ID 0x52
-
+#define CALC_VALUES_ID 0x43
 
 //Kalman Filter Macro
 #define MEASUREMENTSIGMA 0.44
@@ -48,6 +48,7 @@ boolean accelerometerStatus = 0; //separate value for each sensor
 boolean gyrometerStatus = 0;
 boolean gpsStatus = 0;
 boolean commandRecieved = 0;
+boolean transmitCustomData = 1;
 
 //Kalman Filter Variables
 float gain[3] = { 0.10f, 0.010666, 0.004522 };
@@ -87,14 +88,11 @@ float bmpData[PRESSURE_ARRAY_SIZE] = {
 
 bool simulationOn = 0;  
 int bandCount = 0;
+int oldBandCount = 0;
 long transcieverCount = 0;
 
 int rocketStage = 0;
-float x = .2; 
-float oldAlt = 0;
-float filteredAlt;
 
-float timeLength = 0;
 void setup() {
   mySerial.begin(115200);
   Serial.begin(115200);
@@ -137,13 +135,25 @@ void loop() {
 
    if (transcieverCount * 1000 < millis() ) // every
    {
+    // Serial.print("Iterations for last one seconds: "); Serial.println(bandCount - oldBandCount);
+     
      transcieverCount++;
      if (pressureSensorStatus)
        transceiverModule.SendData(bmpData,PRESSURE_ARRAY_SIZE,PRESSURE_SENSOR_ID, (char)(((int)'0') + rocketStage));
-     if (accelerometerStatus)
-         transceiverModule.SendData(accelData,ACCELEROMETER_ARRAY_SIZE,DOF_SENSOR_ID, (char)(((int)'0') + rocketStage));
-     if (gyrometerStatus)
-         transceiverModule.SendData(gyroData,GYROSCOPE_ARRAY_SIZE,GYRO_SENSOR_ID, (char)(((int)'0') + rocketStage));
+     if ( transcieverCount % 2 == 0 ) // Transmit every 2 seconds
+     {
+       accelerometerStatus = 0;
+       if (accelerometerStatus)
+           transceiverModule.SendData(accelData,ACCELEROMETER_ARRAY_SIZE,DOF_SENSOR_ID, (char)(((int)'0') + rocketStage));
+       if (gyrometerStatus)
+           transceiverModule.SendData(gyroData,GYROSCOPE_ARRAY_SIZE,GYRO_SENSOR_ID, (char)(((int)'0') + rocketStage));
+       if (transmitCustomData)
+       {
+           float tempArray[] = {bmpData[0],filteredAltitude, calculatedVelocity,(float)(bandCount-oldBandCount)};
+           transceiverModule.SendData(tempArray,4,CALC_VALUES_ID, (char)(((int)'0') + rocketStage));
+       }
+     }
+     oldBandCount = bandCount;
    }
 
    
@@ -228,9 +238,9 @@ void FilterPressure()
   phit[2][0] = dt*dt/2.0;
   
   /* Propagate state */
-  estp[0] = phi[0][0] * filteredAltitude + phi[0][1] * est[1] + phi[0][2] * est[2];
-  estp[1] = phi[1][0] * filteredAltitude + phi[1][1] * est[1] + phi[1][2] * est[2];
-  estp[2] = phi[2][0] * filteredAltitude + phi[2][1] * est[1] + phi[2][2] * est[2];
+  estp[0] = phi[0][0] * est[0] + phi[0][1] * est[1] + phi[0][2] * est[2];
+  estp[1] = phi[1][0] * est[0] + phi[1][1] * est[1] + phi[1][2] * est[2];
+  estp[2] = phi[2][0] * est[0] + phi[2][1] * est[1] + phi[2][2] * est[2];
   
   est[0] = estp[0] + gain[0] * (bmpData[3] - estp[0]);
   est[1] = estp[1] + gain[1] * (bmpData[3] - estp[0]);
@@ -239,6 +249,7 @@ void FilterPressure()
   calculatedVelocity = est[1];
   calculatedAcceleration = est[2];
   filteredAltitude = est[0];
+  
 }
 void StageOne()
 {

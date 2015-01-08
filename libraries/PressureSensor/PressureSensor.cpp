@@ -14,23 +14,10 @@ void PressureSensor::Init()
 }
 bool PressureSensor::GetData(float array[])
 {
-  sensors_event_t event;
-  bmp.getEvent(&event);
-
-  if (event.pressure)
-  {
-	float temperature = 25.0f;
-
-	bmp.getTemperature(&temperature);
+	bmp.getPressureAndPressure(&array[1], &array[2]);
 	array[0] = millis();
-	array[1] = event.pressure;
-	array[2] = temperature;
-	array[3] = bmp.pressureToAltitude(seaLevelPressure,
-										event.pressure,
-										temperature);
+	array[3] = bmp.pressureToAltitude(seaLevelPressure, array[1], array[2]);
 	return 1; 
-  }
-  return 0;
 }
 bool PressureSensor::SendData(float pressureToSet)
 {
