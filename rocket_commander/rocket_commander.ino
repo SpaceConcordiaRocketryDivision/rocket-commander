@@ -27,6 +27,10 @@
 #define GPS_SENSOR_ID 0x52
 #define CALC_VALUES_ID 0x43
 
+//Ejection Charge Pins
+#define DROGUE_CHUTE_PIN 7
+#define MAIN_CHUTE_PIN 6
+
 //Kalman Filter Macro
 #define MEASUREMENTSIGMA 0.44
 #define MODELSIGMA 0.002
@@ -94,9 +98,10 @@ long transcieverCount = 0;
 int rocketStage = 0;
 
 void setup() {
-  mySerial.begin(115200);
+ // mySerial.begin(115200);
   Serial.begin(115200);
-  pinMode(7,OUTPUT);
+  pinMode(DROGUE_CHUTE_PIN,OUTPUT);
+  pinMode(MAIN_CHUTE_PIN, OUTPUT);
   
   pressureSensor.Init();
   accelerometer.Init(); 
@@ -133,7 +138,7 @@ void loop() {
 
   #ifdef TRANSCIEVER_ENABLED
 
-   if (transcieverCount * 1000 < millis() ) // every
+   if (transcieverCount * 500 < millis() ) // every
    {
     // Serial.print("Iterations for last one seconds: "); Serial.println(bandCount - oldBandCount);
      
@@ -142,16 +147,19 @@ void loop() {
        transceiverModule.SendData(bmpData,PRESSURE_ARRAY_SIZE,PRESSURE_SENSOR_ID, (char)(((int)'0') + rocketStage));
      if ( transcieverCount % 2 == 0 ) // Transmit every 2 seconds
      {
-       accelerometerStatus = 0;
        if (accelerometerStatus)
            transceiverModule.SendData(accelData,ACCELEROMETER_ARRAY_SIZE,DOF_SENSOR_ID, (char)(((int)'0') + rocketStage));
        if (gyrometerStatus)
            transceiverModule.SendData(gyroData,GYROSCOPE_ARRAY_SIZE,GYRO_SENSOR_ID, (char)(((int)'0') + rocketStage));
+ 
+     }
+     else
+     {
        if (transmitCustomData)
        {
            float tempArray[] = {bmpData[0],filteredAltitude, calculatedVelocity,(float)(bandCount-oldBandCount)};
            transceiverModule.SendData(tempArray,4,CALC_VALUES_ID, (char)(((int)'0') + rocketStage));
-       }
+       }  
      }
      oldBandCount = bandCount;
    }
@@ -273,7 +281,7 @@ void StageThree()
 {
   if ( calculatedVelocity <= 0 )
   {
-    digitalWrite(7, HIGH);  
+    digitalWrite(DROGUE_CHUTE_PIN, HIGH);  
     rocketStage = STAGE_FOUR;
    // Serial.println("Descent drogue chute stage");
     apogee_time = bmpData[0];
@@ -286,6 +294,7 @@ void StageFour()
 {
   if ( filteredAltitude <= 1000.0f )
   {
+    digitalWrite(MAIN_CHUTE_PIN, HIGH);
     Serial.println("Ground Stage");
     rocketStage = STAGE_FIVE;
   }
@@ -360,6 +369,7 @@ void SimulateValues()
   static float dt = 0.0f;	
   static float t_accmax = .15f;
   static float a_peak = 160;
+  
   static float hold_a_max = 1.0f;
   static float t_g = .5f;
   static float altitude = 0.01f;
@@ -367,7 +377,9 @@ void SimulateValues()
   static float acceleration = -9.81f;
   static float acceleration_rate = (a_peak + 9.81f) / t_accmax;
   static float deacceleration_rate =  ( 9.81f + a_peak ) / -(t_g); 
+  static float parachute_deacceleration_rate = ( 9.81f) / 5.0f;
   static float standard_deviation_alt = 1.0f;
+  
   if (!simulation_done && rocketStage > 0)
   {
     delay(5);
@@ -382,10 +394,13 @@ void SimulateValues()
         acceleration = acceleration + acceleration_rate * dt;
       else if (actual_millis < hold_a_max)
 	acceleration = a_peak;
-      else if (acceleration > -9.81f)
+      else if (acceleration > -9.81f && velocity >= 0)
 	acceleration = acceleration + deacceleration_rate * dt;
+      else if (acceleration < 0.0f )
+	acceleration = acceleration + parachute_deacceleration_rate * dt;
       else
-	acceleration = -9.81;
+        acceleration = 0.0f;
+        
       float x1, x2, w, y1, y2;
       if (altitude <= 0.0f)
       {
