@@ -73,10 +73,11 @@ float pestp[3][3] = { 0, 0, 0,
 float term[3][3];
 float calculatedVelocity = 0.0f;
 float calculatedAcceleration = 0.0f;
-float filteredAltitude = 0.0f;
+float filteredAltitude = 0.1f;
 int samplingRate = 0;
 
 float apogee_time = 0.0f;
+float filt_apogee_time = 0.0f;
 
 int count = 1;
 // Array for sensors, sizes of each array defined in header for sensor
@@ -179,7 +180,7 @@ void loop() {
     else if ( currentCommand[7] == 'S' && currentCommand[8] == 'M' && currentCommand[12] == 'S' && currentCommand[13] == '0' ) // Turn simulation mode off for rocket-commander
       simulationOn = 0;
   }
- // OutputDataArrays();
+  //OutputDataArrays();
   switch (rocketStage)
   {
   case LOCKED_GROUND_STAGE:
@@ -284,7 +285,7 @@ void StageThree()
     digitalWrite(DROGUE_CHUTE_PIN, HIGH);  
     rocketStage = STAGE_FOUR;
    // Serial.println("Descent drogue chute stage");
-    apogee_time = bmpData[0];
+    filt_apogee_time = bmpData[0];
     //Serial.print("Filtered apogee is at ");
     //Serial.println(apogee_time);
   }
@@ -312,12 +313,15 @@ void OutputDataArrays() {
       Serial.print("C : ");
       Serial.print(bmpData[3]);
       Serial.println(" m");
+      
+      Serial.print("Filt altitude: ");
+      Serial.println(filteredAltitude);
   }
-  else if (apogee_time != -1.0f)
+  else if (filt_apogee_time != -1.0f)
   {
     Serial.print("Filtered apogee is at ");
-    Serial.println(apogee_time);
-    apogee_time = -1.0f;
+    Serial.println(filt_apogee_time);
+    filt_apogee_time = -1.0f;
   }
   if (accelerometerStatus)
   {
@@ -382,7 +386,7 @@ void SimulateValues()
   
   if (!simulation_done && rocketStage > 0)
   {
-    delay(5);
+      delay(5);
     //dt = millis() / 1000.0f - actual_millis;
       dt = 5.0f/1000.0f;
       //Serial.println(dt * 1000.0f);
@@ -410,6 +414,10 @@ void SimulateValues()
 		
 	Serial.print("Simulation Apogee at ");
 	Serial.println(apogee_time * 1000.0f);
+
+        Serial.print("Filtered Simulation apogee at ");
+        Serial.println(filt_apogee_time);
+        
 	apogee = true;
         return;
       }
@@ -421,7 +429,7 @@ void SimulateValues()
 	if (  apogee_time == 0.0f && velocity <= 0.0f  && altitude > 10.0f)
 	{
 	  apogee_time = actual_millis;
-	  Serial.println(apogee_time);
+	  //Serial.println(apogee_time);
 	}
 	do
 	{
