@@ -1,9 +1,9 @@
 #include <PressureSensor.h>
 #include <TransceiverModule.h>
 #include <Accelerometer.h>
-#include <Gyroscope.h>
+//#include <Gyroscope.h>
 
-#include <SoftwareSerial.h>
+//#include <SoftwareSerial.h>
 #include <Wire.h>
 
 // ifdef to enable or disable pieces of code for debugging
@@ -37,13 +37,12 @@
 #define MEASUREMENTVARIANCE MEASUREMENTSIGMA*MEASUREMENTSIGMA
 #define MODELVARIANCE MODELSIGMA*MODELSIGMA
 
-SoftwareSerial mySerial(2,3);
 
 //Component objects
 PressureSensor pressureSensor;
 TransceiverModule transceiverModule;
 Accelerometer accelerometer;
-Gyroscope gyroscope;
+//Gyroscope gyroscope;
 
 // Status of sensors: 0 = offline, 1 = online
 boolean pressureSensorStatus = 0;
@@ -64,9 +63,9 @@ float phi[3][3] = { 1, 0, 0,
 float phit[3][3] = { 1, 0, 0,
 	               0, 1, 0,
 	               0, 0, 1.0 };
-float pest[3][3] = { 0.002, 0, 0,
-0, 0.004, 0,
-0, 0, 0.002 };
+float pest[3][3] = { 1, 0, 0,
+0, 1, 0,
+0, 0, 1 };
 float pestp[3][3] = { 0, 0, 0,
 0, 0, 0,
 0, 0, 0 };
@@ -83,8 +82,8 @@ int count = 1;
 // Array for sensors, sizes of each array defined in header for sensor
 float accelData[ACCELEROMETER_ARRAY_SIZE] = {
   0}; //x, y, z
-float gyroData[GYROSCOPE_ARRAY_SIZE] = { 
-  0}; //x, y, z
+//float gyroData[GYROSCOPE_ARRAY_SIZE] = { 
+  //0}; //x, y, z
 float gpsData[8] = {
   0}; // CHANGE to suit number of required data fields
 float bmpData[PRESSURE_ARRAY_SIZE] = {
@@ -97,7 +96,7 @@ int oldBandCount = 0;
 long transcieverCount = 0;
 
 int rocketStage = 0;
-
+float velocity = 0.01f;
 void setup() {
  // mySerial.begin(115200);
   Serial.begin(115200);
@@ -113,7 +112,7 @@ void setup() {
 	Serial.println("CLEARDATA");
 	Serial.println("LABEL,Time,Alt,AltFiltered,Milis");
   #endif
-  
+  CalculateKalmanGain(80);
 }
 
 void loop() { 
@@ -122,7 +121,7 @@ void loop() {
   #ifdef OUTPUT_EXCEL_ENABLED
   Serial.print("DATA,TIME,"); Serial.print(bmpData[3]); Serial.print(","); Serial.print(filteredAlt); Serial.print(","); Serial.println(bmpData[0]);
   #endif
-  
+    
   if (simulationOn)
     SimulateValues();
   else
@@ -133,15 +132,19 @@ void loop() {
     if ( bandCount == 10 )
       pressureSensor.SendData(bmpData[1]);
   } 
-  
+  if (bandCount == 100)
+    rocketStage=1;
+  //int timeTemp = millis();
+
+  //Serial.println(millis()-timeTemp);
   FilterPressure();
 
 
   #ifdef TRANSCIEVER_ENABLED
 
-   if (transcieverCount * 500 < millis() ) // every
+   if (transcieverCount * 1000 < millis() ) // every
    {
-    // Serial.print("Iterations for last one seconds: "); Serial.println(bandCount - oldBandCount);
+     Serial.print("Iterations for last one seconds: "); Serial.println(bandCount - oldBandCount);
      
      transcieverCount++;
      if (pressureSensorStatus)
@@ -150,8 +153,8 @@ void loop() {
      {
        if (accelerometerStatus)
            transceiverModule.SendData(accelData,ACCELEROMETER_ARRAY_SIZE,DOF_SENSOR_ID, (char)(((int)'0') + rocketStage));
-       if (gyrometerStatus)
-           transceiverModule.SendData(gyroData,GYROSCOPE_ARRAY_SIZE,GYRO_SENSOR_ID, (char)(((int)'0') + rocketStage));
+      // if (gyrometerStatus)
+        //   transceiverModule.SendData(gyroData,GYROSCOPE_ARRAY_SIZE,GYRO_SENSOR_ID, (char)(((int)'0') + rocketStage));
  
      }
      else
@@ -180,7 +183,7 @@ void loop() {
     else if ( currentCommand[7] == 'S' && currentCommand[8] == 'M' && currentCommand[12] == 'S' && currentCommand[13] == '0' ) // Turn simulation mode off for rocket-commander
       simulationOn = 0;
   }
-  //OutputDataArrays();
+ // OutputDataArrays();
   switch (rocketStage)
   {
   case LOCKED_GROUND_STAGE:
@@ -201,43 +204,62 @@ void loop() {
     break;
   }
 }
-void CalculateKalmanGain()
+void CalculateKalmanGain(int count)
 {
-  float dt = 7/1000;
-
-  phi[0][1] = dt;
-  phi[1][2] = dt;
-  phi[0][2] = dt*dt/2.0;
-  phit[1][0] = dt;
-  phit[2][1] = dt;
-  phit[2][0] = dt*dt/2.0;
+  for ( int i = 0; i <= count; i++ )
+  {
+    float dt = 20.0f/1000.0f;
   
-  term[0][0] = phi[0][0] * pest[0][0] + phi[0][1] * pest[1][0] + phi[0][2] * pest[2][0];
-  term[0][1] = phi[0][0] * pest[0][1] + phi[0][1] * pest[1][1] + phi[0][2] * pest[2][1];
-  term[0][2] = phi[0][0] * pest[0][2] + phi[0][1] * pest[1][2] + phi[0][2] * pest[2][2];
-  term[1][0] = phi[1][0] * pest[0][0] + phi[1][1] * pest[1][0] + phi[1][2] * pest[2][0];
-  term[1][1] = phi[1][0] * pest[0][1] + phi[1][1] * pest[1][1] + phi[1][2] * pest[2][1];
-  term[1][2] = phi[1][0] * pest[0][2] + phi[1][1] * pest[1][2] + phi[1][2] * pest[2][2];
-  term[2][0] = phi[2][0] * pest[0][0] + phi[2][1] * pest[1][0] + phi[2][2] * pest[2][0];
-  term[2][1] = phi[2][0] * pest[0][1] + phi[2][1] * pest[1][1] + phi[2][2] * pest[2][1];
-  term[2][2] = phi[2][0] * pest[0][2] + phi[2][1] * pest[1][2] + phi[2][2] * pest[2][2];
-
-  pestp[0][0] = term[0][0] * phit[0][0] + term[0][1] * phit[1][0] + term[0][2] * phit[2][0];
-  pestp[0][1] = term[0][0] * phit[0][1] + term[0][1] * phit[1][1] + term[0][2] * phit[2][1];
-  pestp[0][2] = term[0][0] * phit[0][2] + term[0][1] * phit[1][2] + term[0][2] * phit[2][2];
-  pestp[1][0] = term[1][0] * phit[0][0] + term[1][1] * phit[1][0] + term[1][2] * phit[2][0];
-  pestp[1][1] = term[1][0] * phit[0][1] + term[1][1] * phit[1][1] + term[1][2] * phit[2][1];
-  pestp[1][2] = term[1][0] * phit[0][2] + term[1][1] * phit[1][2] + term[1][2] * phit[2][2];
-  pestp[2][0] = term[2][0] * phit[0][0] + term[2][1] * phit[1][0] + term[2][2] * phit[2][0];
-  pestp[2][1] = term[2][0] * phit[0][1] + term[2][1] * phit[1][1] + term[2][2] * phit[2][1];
-  pestp[2][2] = term[2][0] * phit[0][2] + term[2][1] * phit[1][2] + term[2][2] * phit[2][2];
-  pestp[0][0] = pestp[0][0] + MODELVARIANCE;
-
+    phi[0][1] = dt;
+    phi[1][2] = dt;
+    phi[0][2] = dt*dt/2.0;
+    phit[1][0] = dt;
+    phit[2][1] = dt;
+    phit[2][0] = dt*dt/2.0;
+   //Error Covariance Update P = A*P*A' + Q;
+    term[0][0] = phi[0][0] * pest[0][0] + phi[0][1] * pest[1][0] + phi[0][2] * pest[2][0];
+    term[0][1] = phi[0][0] * pest[0][1] + phi[0][1] * pest[1][1] + phi[0][2] * pest[2][1];
+    term[0][2] = phi[0][0] * pest[0][2] + phi[0][1] * pest[1][2] + phi[0][2] * pest[2][2];
+    term[1][0] = phi[1][0] * pest[0][0] + phi[1][1] * pest[1][0] + phi[1][2] * pest[2][0];
+    term[1][1] = phi[1][0] * pest[0][1] + phi[1][1] * pest[1][1] + phi[1][2] * pest[2][1];
+    term[1][2] = phi[1][0] * pest[0][2] + phi[1][1] * pest[1][2] + phi[1][2] * pest[2][2];
+    term[2][0] = phi[2][0] * pest[0][0] + phi[2][1] * pest[1][0] + phi[2][2] * pest[2][0];
+    term[2][1] = phi[2][0] * pest[0][1] + phi[2][1] * pest[1][1] + phi[2][2] * pest[2][1];
+    term[2][2] = phi[2][0] * pest[0][2] + phi[2][1] * pest[1][2] + phi[2][2] * pest[2][2];
   
+    pestp[0][0] = term[0][0] * phit[0][0] + term[0][1] * phit[1][0] + term[0][2] * phit[2][0];
+    pestp[0][1] = term[0][0] * phit[0][1] + term[0][1] * phit[1][1] + term[0][2] * phit[2][1];
+    pestp[0][2] = term[0][0] * phit[0][2] + term[0][1] * phit[1][2] + term[0][2] * phit[2][2];
+    pestp[1][0] = term[1][0] * phit[0][0] + term[1][1] * phit[1][0] + term[1][2] * phit[2][0];
+    pestp[1][1] = term[1][0] * phit[0][1] + term[1][1] * phit[1][1] + term[1][2] * phit[2][1];
+    pestp[1][2] = term[1][0] * phit[0][2] + term[1][1] * phit[1][2] + term[1][2] * phit[2][2];
+    pestp[2][0] = term[2][0] * phit[0][0] + term[2][1] * phit[1][0] + term[2][2] * phit[2][0];
+    pestp[2][1] = term[2][0] * phit[0][1] + term[2][1] * phit[1][1] + term[2][2] * phit[2][1];
+    pestp[2][2] = term[2][0] * phit[0][2] + term[2][1] * phit[1][2] + term[2][2] * phit[2][2];
+    pestp[0][0] = pestp[0][0] + MODELVARIANCE;
+  
+  // Equivalent to K = P*H'/(H*P*H' + R);
+    gain[0] = (phi[0][0] * pestp[0][0] + phi[0][1] * pestp[1][0] + phi[0][2] * pestp[2][0]) / (pestp[0][0] + MEASUREMENTVARIANCE);
+    gain[1] = (phi[1][0] * pestp[0][0] + phi[1][1] * pestp[1][0] + phi[1][2] * pestp[2][0]) / (pestp[0][0] + MEASUREMENTVARIANCE);
+    gain[2] = (phi[2][0] * pestp[0][0] + phi[2][1] * pestp[1][0] + phi[2][2] * pestp[2][0]) / (pestp[0][0] + MEASUREMENTVARIANCE);
+    
+    //Error Covariance Correction P = (eye(3) - K *H)*P;
+    pest[0][0] = pestp[0][0] * (1.0 - gain[0]);
+    pest[0][1] = pestp[1][0] * (1.0 - gain[0]);
+    pest[0][2] = pestp[2][0] * (1.0 - gain[0]);
+    pest[1][0] = pestp[0][1] - gain[1] * pestp[0][0];
+    pest[1][1] = pestp[1][1] - gain[1] * pestp[1][0];
+    pest[1][2] = pestp[2][1] - gain[1] * pestp[2][0];
+    pest[2][0] = pestp[0][2] - gain[2] * pestp[0][0];
+    pest[2][1] = pestp[1][2] - gain[2] * pestp[1][0];
+    pest[2][2] = pestp[2][2] - gain[2] * pestp[2][0];
+    
+    Serial.print( "Gain[0]: "); Serial.print(gain[0]); Serial.print( " Gain[1]: ");Serial.print(gain[1]); Serial.print( " Gain[2]: ");Serial.println(gain[2]);
+  }
 }
 void FilterPressure()
 {
-  float dt = 5.0f/1000.0f;
+  float dt = 20.0f/1000.0f;
   
   phi[0][1] = dt;
   phi[1][2] = dt;
@@ -312,10 +334,17 @@ void OutputDataArrays() {
       Serial.print(bmpData[2]);
       Serial.print("C : ");
       Serial.print(bmpData[3]);
-      Serial.println(" m");
+      Serial.print(" m: ");
       
-      Serial.print("Filt altitude: ");
-      Serial.println(filteredAltitude);
+      Serial.print(" Filt altitude: ");
+      Serial.print(filteredAltitude);
+      Serial.print(" m");
+      Serial.print(" Calc Velocity: ");
+      Serial.print(calculatedVelocity);
+      Serial.print(" m/s");
+      Serial.print(" Actual Velocity: ");
+      Serial.print(velocity);
+      Serial.println(" m/s");
   }
   else if (filt_apogee_time != -1.0f)
   {
@@ -334,7 +363,7 @@ void OutputDataArrays() {
     Serial.print(accelData[3]);
     Serial.println(" m/s^2 z:");
   }
-  if (gyrometerStatus)
+  /*if (gyrometerStatus)
   {
     Serial.print(bmpData[0]);
     Serial.print(" ms : ");
@@ -344,7 +373,7 @@ void OutputDataArrays() {
     Serial.print(" rad/s y ");
     Serial.print(gyroData[3]);
     Serial.println(" rad/s z ");
-  }
+  }*/
   if (gpsStatus)
   {
     //Serial.print(gpsData[0]);
@@ -377,7 +406,7 @@ void SimulateValues()
   static float hold_a_max = 1.0f;
   static float t_g = .5f;
   static float altitude = 0.01f;
-  static float velocity = 0.01f;
+  //static float velocity = 0.01f;
   static float acceleration = -9.81f;
   static float acceleration_rate = (a_peak + 9.81f) / t_accmax;
   static float deacceleration_rate =  ( 9.81f + a_peak ) / -(t_g); 
@@ -388,7 +417,7 @@ void SimulateValues()
   {
       delay(5);
     //dt = millis() / 1000.0f - actual_millis;
-      dt = 5.0f/1000.0f;
+      dt = 20.0f/1000.0f;
       //Serial.println(dt * 1000.0f);
       //Serial.println(start_millis);
       //actual_millis = (millis() - start_millis) / 1000.0f;
