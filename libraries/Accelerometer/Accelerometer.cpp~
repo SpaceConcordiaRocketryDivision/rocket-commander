@@ -7,10 +7,10 @@ void Accelerometer::Init() {
 	if(!accel.begin())
 		while(1);
 }
-
-boolean Accelerometer::GetData(float array[]) {
-	sensors_event_t event;
-	accel.getEvent(&event);
+boolean Accelerometer::GetData(float array[])
+{
+  sensors_event_t event;
+  accel.getEvent(&event);
 
   //TODO: event if
 	array[0] = millis();
@@ -18,5 +18,5 @@ boolean Accelerometer::GetData(float array[]) {
 	array[2] = event.acceleration.y;
 	array[3] = event.acceleration.z;
 
-	return 1;
+  return 1;
 }

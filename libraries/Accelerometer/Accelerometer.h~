@@ -8,7 +8,6 @@
 #include <Adafruit_LSM303_U.h>
 
 class Accelerometer {
-
 public:
 	Accelerometer();
 	boolean GetData(float array[]);
