@@ -1,7 +1,7 @@
 #include <PressureSensor.h>
 #include <TransceiverModule.h>
 #include <Accelerometer.h>
-//#include <Gyroscope.h>
+
 
 //#include <SoftwareSerial.h>
 #include <Wire.h>
@@ -39,19 +39,17 @@
 
 
 //Component objects
-PressureSensor pressureSensor;
-TransceiverModule transceiverModule;
+PressureSensor pressure_sensor;
+TransceiverModule transceiver_module;
 Accelerometer accelerometer;
-//Gyroscope gyroscope;
+
 
 // Status of sensors: 0 = offline, 1 = online
-boolean pressureSensorStatus = 0;
-boolean dofSensorStatus = 0;
-boolean accelerometerStatus = 0; //separate value for each sensor
-boolean gyrometerStatus = 0;
-boolean gpsStatus = 0;
-boolean commandRecieved = 0;
-boolean transmitCustomData = 1;
+boolean pressure_sensor_status = 0;
+boolean accelerometer_status = 0; //separate value for each sensor
+
+boolean command_recieved = 0;
+boolean transmit_customData = 1;
 
 //Kalman Filter Variables
 float gain[3] = { 0.10f, 0.010666, 0.004522 };
@@ -69,33 +67,32 @@ float pest[3][3] = { 1, 0, 0,
 float pestp[3][3] = { 0, 0, 0,
 0, 0, 0,
 0, 0, 0 };
+
 float term[3][3];
-float calculatedVelocity = 0.0f;
-float calculatedAcceleration = 0.0f;
-float filteredAltitude = 0.1f;
-int samplingRate = 0;
+float calculated_velocity = 0.0f;
+float calculated_acceleration = 0.0f;
+float filtered_altitude = 0.1f;
+float max_altitude = 0.0f;
+int sampling_rate = 0;
+
 
 float apogee_time = 0.0f;
 float filt_apogee_time = 0.0f;
 
 int count = 1;
 // Array for sensors, sizes of each array defined in header for sensor
-float accelData[ACCELEROMETER_ARRAY_SIZE] = {
+float accel_data[ACCELEROMETER_ARRAY_SIZE] = {
   0}; //x, y, z
-//float gyroData[GYROSCOPE_ARRAY_SIZE] = { 
-  //0}; //x, y, z
-float gpsData[8] = {
-  0}; // CHANGE to suit number of required data fields
-float bmpData[PRESSURE_ARRAY_SIZE] = {
+float bmp_data[PRESSURE_ARRAY_SIZE] = {
   0};  // Pressure Temperature Altitude
   
+int time_temp = 0;
+bool simulation_on = 0;  
+int band_count = 0;
+int old_band_count = 0;
+long transciever_count = 0;
 
-bool simulationOn = 0;  
-int bandCount = 0;
-int oldBandCount = 0;
-long transcieverCount = 0;
-
-int rocketStage = 0;
+int rocket_stage = 0;
 float velocity = 0.01f;
 void setup() {
  // mySerial.begin(115200);
@@ -103,88 +100,80 @@ void setup() {
   pinMode(DROGUE_CHUTE_PIN,OUTPUT);
   pinMode(MAIN_CHUTE_PIN, OUTPUT);
   
-  pressureSensor.Init();
+  pressure_sensor.Init();
   accelerometer.Init(); 
-  transceiverModule.Init('A');
+  transceiver_module.Init('A');
  // gyroscope.Init(); //TODO: set up resolution
   
   #ifdef OUTPUT_EXCEL_ENABLED
 	Serial.println("CLEARDATA");
 	Serial.println("LABEL,Time,Alt,AltFiltered,Milis");
   #endif
-  CalculateKalmanGain(80);
+  CalculateKalmanGain(40);
 }
 
 void loop() { 
-   char currentCommand[25] = {
-  '\0'};
+  
   #ifdef OUTPUT_EXCEL_ENABLED
-  Serial.print("DATA,TIME,"); Serial.print(bmpData[3]); Serial.print(","); Serial.print(filteredAlt); Serial.print(","); Serial.println(bmpData[0]);
+  Serial.print("DATA,TIME,"); Serial.print(bmp_data[3]); Serial.print(","); Serial.print(filteredAlt); Serial.print(","); Serial.println(bmp_data[0]);
   #endif
     
-  if (simulationOn)
+  if (simulation_on)
     SimulateValues();
   else
   {
-    pressureSensorStatus = pressureSensor.GetData(bmpData);
-    accelerometerStatus = accelerometer.GetData(accelData);
+    pressure_sensor_status = pressure_sensor.GetData(bmp_data);
+    //accelerometer_status = accelerometer.GetData(accel_data);
     //gyrometerStatus = gyroscope.GetData(gyroData);
-    if ( bandCount == 10 )
-      pressureSensor.SendData(bmpData[1]);
+    if ( band_count == 10 ) // Let the pressure sensor initialize for 10 iterations before sending sea level pressure
+      pressure_sensor.SendData(bmp_data[1]);
   } 
-  if (bandCount == 100)
-    rocketStage=1;
-  //int timeTemp = millis();
-
-  //Serial.println(millis()-timeTemp);
+  if (band_count == 100)
+  {
+    rocket_stage=1;
+    simulation_on = 1; 
+  }
+  
   FilterPressure();
-
-
-  #ifdef TRANSCIEVER_ENABLED
-
-   if (transcieverCount * 1000 < millis() ) // every
+  
+  if ( max_altitude < filtered_altitude )
+    max_altitude = filtered_altitude;
+  
+  #ifdef TRANSCIEVER_ENABLEDs
+   if (transciever_count * 1000 < millis() ) // every
    {
-     Serial.print("Iterations for last one seconds: "); Serial.println(bandCount - oldBandCount);
+    // Serial.print("Iterations for last one seconds: "); Serial.println(band_count - old_band_count);
      
-     transcieverCount++;
-     if (pressureSensorStatus)
-       transceiverModule.SendData(bmpData,PRESSURE_ARRAY_SIZE,PRESSURE_SENSOR_ID, (char)(((int)'0') + rocketStage));
-     if ( transcieverCount % 2 == 0 ) // Transmit every 2 seconds
+     transciever_count++;
+     if (pressure_sensor_status)
+       transceiver_module.SendData(bmp_data,PRESSURE_ARRAY_SIZE,PRESSURE_SENSOR_ID, (char)(((int)'0') + rocket_stage));
+     if ( transciever_count % 2 == 0 ) // Transmit every 2 seconds
      {
-       if (accelerometerStatus)
-           transceiverModule.SendData(accelData,ACCELEROMETER_ARRAY_SIZE,DOF_SENSOR_ID, (char)(((int)'0') + rocketStage));
+       if (accelerometer_status)
+           transceiver_module.SendData(accel_data,ACCELEROMETER_ARRAY_SIZE,DOF_SENSOR_ID, (char)(((int)'0') + rocket_stage));
       // if (gyrometerStatus)
-        //   transceiverModule.SendData(gyroData,GYROSCOPE_ARRAY_SIZE,GYRO_SENSOR_ID, (char)(((int)'0') + rocketStage));
+        //   transceiver_module.SendData(gyroData,GYROSCOPE_ARRAY_SIZE,GYRO_SENSOR_ID, (char)(((int)'0') + rocket_stage));
  
      }
      else
      {
-       if (transmitCustomData)
+       if (transmit_customData)
        {
-           float tempArray[] = {bmpData[0],filteredAltitude, calculatedVelocity,(float)(bandCount-oldBandCount)};
-           transceiverModule.SendData(tempArray,4,CALC_VALUES_ID, (char)(((int)'0') + rocketStage));
+           float tempArray[] = {bmp_data[0],filtered_altitude, calculated_velocity,(float)(band_count-old_band_count)};
+           transceiver_module.SendData(tempArray,4,CALC_VALUES_ID, (char)(((int)'0') + rocket_stage));
        }  
      }
-     oldBandCount = bandCount;
-   }
-
-   
+     old_band_count = band_count;
+   } 
    #endif
-  bandCount++;
+  band_count++;
   
-  if ( transceiverModule.GetData(currentCommand,25) && currentCommand[0] == (char)START_BYTE )
-  {
-    if ( currentCommand[7] == 'U' && currentCommand[8] == 'U' && currentCommand[12] == 'S' && currentCommand[13] == '1' ) // Put rocket-commander in stage one(unlocked)
-      rocketStage = STAGE_ONE;
-    else if ( currentCommand[7] == 'L' && currentCommand[8] == 'L' && currentCommand[12] == 'S' && currentCommand[13] == '0' ) // Put rocket-commander in stage zero (locked)
-      rocketStage = LOCKED_GROUND_STAGE;
-    else if ( currentCommand[7] == 'S' && currentCommand[8] == 'M' && currentCommand[12] == 'S' && currentCommand[13] == '1' ) // Put rocket-commander in simulation mode
-      simulationOn = 1;
-    else if ( currentCommand[7] == 'S' && currentCommand[8] == 'M' && currentCommand[12] == 'S' && currentCommand[13] == '0' ) // Turn simulation mode off for rocket-commander
-      simulationOn = 0;
-  }
- // OutputDataArrays();
-  switch (rocketStage)
+  CheckIfcommand_recieved();
+ 
+  OutputDataArrays(); 
+ 
+   // Below handles the rocket stages, the functions will transition the stage of the rocket to the next stage when a condition is met
+  switch (rocket_stage)
   {
   case LOCKED_GROUND_STAGE:
     break;
@@ -203,12 +192,13 @@ void loop() {
   default:
     break;
   }
+ // Serial.println(millis()-time_temp);
 }
 void CalculateKalmanGain(int count)
 {
   for ( int i = 0; i <= count; i++ )
   {
-    float dt = 20.0f/1000.0f;
+    float dt = 9.0f/1000.0f;
   
     phi[0][1] = dt;
     phi[1][2] = dt;
@@ -259,7 +249,9 @@ void CalculateKalmanGain(int count)
 }
 void FilterPressure()
 {
-  float dt = 20.0f/1000.0f;
+  float dt = (10)/1000.0f;
+//  Serial.println(millis()-time_temp);
+  time_temp = millis();
   
   phi[0][1] = dt;
   phi[1][2] = dt;
@@ -273,41 +265,41 @@ void FilterPressure()
   estp[1] = phi[1][0] * est[0] + phi[1][1] * est[1] + phi[1][2] * est[2];
   estp[2] = phi[2][0] * est[0] + phi[2][1] * est[1] + phi[2][2] * est[2];
   
-  est[0] = estp[0] + gain[0] * (bmpData[3] - estp[0]);
-  est[1] = estp[1] + gain[1] * (bmpData[3] - estp[0]);
-  est[2] = estp[2] + gain[2] * (bmpData[3] - estp[0]);
+  est[0] = estp[0] + gain[0] * (bmp_data[3] - estp[0]);
+  est[1] = estp[1] + gain[1] * (bmp_data[3] - estp[0]);
+  est[2] = estp[2] + gain[2] * (bmp_data[3] - estp[0]);
   
-  calculatedVelocity = est[1];
-  calculatedAcceleration = est[2];
-  filteredAltitude = est[0];
+  calculated_velocity = est[1];
+  calculated_acceleration = est[2];
+  filtered_altitude = est[0];
   
 }
 void StageOne()
 {
-  if (filteredAltitude > 10.0f) // if altitude is greater than 10m
+  if (filtered_altitude > 50.0f) // if altitude is greater than 50m
   {
     Serial.println("Thrust Stage");
-    rocketStage = STAGE_TWO;
+    rocket_stage = STAGE_TWO;
   }
 }
 
 void StageTwo()
 {
-  if ( calculatedAcceleration < 0 )
+  if ( calculated_acceleration < 0 )
   {
-    rocketStage = STAGE_THREE;
+    rocket_stage = STAGE_THREE;
     Serial.println("Deceleration Stage");
   }
 }
 
 void StageThree()
 {
-  if ( calculatedVelocity <= 0 )
+  if ( calculated_velocity <= 0 )
   {
     digitalWrite(DROGUE_CHUTE_PIN, HIGH);  
-    rocketStage = STAGE_FOUR;
+    rocket_stage = STAGE_FOUR;
    // Serial.println("Descent drogue chute stage");
-    filt_apogee_time = bmpData[0];
+    filt_apogee_time = bmp_data[0];
     //Serial.print("Filtered apogee is at ");
     //Serial.println(apogee_time);
   }
@@ -315,105 +307,71 @@ void StageThree()
 
 void StageFour()
 {
-  if ( filteredAltitude <= 1000.0f )
+  if ( filtered_altitude <= 1000.0f )
   {
     digitalWrite(MAIN_CHUTE_PIN, HIGH);
     Serial.println("Ground Stage");
-    rocketStage = STAGE_FIVE;
+    rocket_stage = STAGE_FIVE;
   }
 }
 
 
 void OutputDataArrays() {
-  if (pressureSensorStatus)
+  if (pressure_sensor_status && rocket_stage)
   {
-      Serial.print(bmpData[0]);
+      Serial.print(bmp_data[0]);
       Serial.print(" ms : ");
-      Serial.print(bmpData[1]);
+      Serial.print(bmp_data[1]);
       Serial.print(" hPa : ");
-      Serial.print(bmpData[2]);
+      Serial.print(bmp_data[2]);
       Serial.print("C : ");
-      Serial.print(bmpData[3]);
+      Serial.print(bmp_data[3]);
       Serial.print(" m: ");
       
       Serial.print(" Filt altitude: ");
-      Serial.print(filteredAltitude);
+      Serial.print(filtered_altitude);
       Serial.print(" m");
       Serial.print(" Calc Velocity: ");
-      Serial.print(calculatedVelocity);
+      Serial.print(calculated_velocity);
       Serial.print(" m/s");
       Serial.print(" Actual Velocity: ");
       Serial.print(velocity);
       Serial.println(" m/s");
   }
-  else if (filt_apogee_time != -1.0f)
+  if (accelerometer_status && rocket_stage != STAGE_FIVE)
   {
-    Serial.print("Filtered apogee is at ");
-    Serial.println(filt_apogee_time);
-    filt_apogee_time = -1.0f;
-  }
-  if (accelerometerStatus)
-  {
-    Serial.print(bmpData[0]);
+    Serial.print(bmp_data[0]);
     Serial.print(" ms : ");
-    Serial.print(accelData[1]);
+    Serial.print(accel_data[1]);
     Serial.print(" m/s^2 x:" );
-    Serial.print(accelData[2]);
+    Serial.print(accel_data[2]);
     Serial.print(" m/s^2 y:");
-    Serial.print(accelData[3]);
+    Serial.print(accel_data[3]);
     Serial.println(" m/s^2 z:");
-  }
-  /*if (gyrometerStatus)
-  {
-    Serial.print(bmpData[0]);
-    Serial.print(" ms : ");
-    Serial.print(gyroData[1]);
-    Serial.print(" rad/s x" );
-    Serial.print(gyroData[2]);
-    Serial.print(" rad/s y ");
-    Serial.print(gyroData[3]);
-    Serial.println(" rad/s z ");
-  }*/
-  if (gpsStatus)
-  {
-    //Serial.print(gpsData[0]);
-    Serial.print(gpsData[1]);
-    Serial.print("Latitude: ");
-    Serial.println(gpsData[2]);
-    Serial.print("Longitude: ");
-    Serial.println(gpsData[3]);
-    Serial.print("Fix quality: ");
-    Serial.println(gpsData[4]); 
-    Serial.print("Satellites: ");
-    Serial.println(gpsData[5]);
-    Serial.print("Altitude: ");
-    Serial.println(gpsData[6]);
-    Serial.print("Speed: ");
-    Serial.println(gpsData[7]); // Unsure about units
   }
 }
 void SimulateValues()
 {
   static bool simulation_done = false;
-  static bool apogee = false;
   static float apogee_time = 0.0f;
   static float start_millis = millis();
   static float actual_millis = 0.0f;
   static float dt = 0.0f;	
-  static float t_accmax = .15f;
-  static float a_peak = 160;
+  static float t_accmax = .15f; // How long it takes the rocket to achieve max acceleration
+  static float a_peak = 160; // Peak acceleration the rocket will achieve
   
-  static float hold_a_max = 1.0f;
+  static float hold_a_max = 1.0f; // How long the rocket will hold max acceleration
   static float t_g = .5f;
   static float altitude = 0.01f;
   //static float velocity = 0.01f;
-  static float acceleration = -9.81f;
-  static float acceleration_rate = (a_peak + 9.81f) / t_accmax;
-  static float deacceleration_rate =  ( 9.81f + a_peak ) / -(t_g); 
-  static float parachute_deacceleration_rate = ( 9.81f) / 5.0f;
-  static float standard_deviation_alt = 1.0f;
+  static float acceleration = -9.81f; 
+  static float acceleration_rate = (a_peak + 9.81f) / t_accmax; // The rate of acceleration when motor is giving thrust
+  static float deacceleration_rate =  ( 9.81f + a_peak ) / -(t_g); // The rate of de-acceleration when motor is burnt out
+  static float drogue_parachute_deacceleration_rate = ( 9.81f) / 5.0f; // The rate of de-acceleration when drogue chute is deployed
+  static float standard_deviation_alt = 1.0f; // Expected sensor noise in meter
+  static float max_sim_altitude = 0.1f;
   
-  if (!simulation_done && rocketStage > 0)
+  if (!simulation_done && rocket_stage > 0)
   {
       delay(5);
     //dt = millis() / 1000.0f - actual_millis;
@@ -423,18 +381,21 @@ void SimulateValues()
       //actual_millis = (millis() - start_millis) / 1000.0f;
       actual_millis += dt;
       
-      if (actual_millis < t_accmax)
+      if (actual_millis < t_accmax) // Is the parachute motor burning
         acceleration = acceleration + acceleration_rate * dt;
-      else if (actual_millis < hold_a_max)
+      else if (actual_millis < hold_a_max) // Is the rocket at max acceleration
 	acceleration = a_peak;
-      else if (acceleration > -9.81f && velocity >= 0)
+      else if (acceleration > -9.81f && velocity >= 0) // Is the rocket motor burnt out and the rocket is still ascending (i.e approaching apogee)
 	acceleration = acceleration + deacceleration_rate * dt;
-      else if (acceleration < 0.0f )
-	acceleration = acceleration + parachute_deacceleration_rate * dt;
+      else if (acceleration < 0.0f ) // Is it post apogee, if so apply drogue chute deacceleration rate
+	acceleration = acceleration + drogue_parachute_deacceleration_rate * dt;
       else
         acceleration = 0.0f;
         
       float x1, x2, w, y1, y2;
+      
+      pressure_sensor_status = 1;
+      accelerometer_status = 1;
       if (altitude <= 0.0f)
       {
 	simulation_done = true;
@@ -447,7 +408,14 @@ void SimulateValues()
         Serial.print("Filtered Simulation apogee at ");
         Serial.println(filt_apogee_time);
         
-	apogee = true;
+        Serial.print("Max filtered altitude is at ");
+        Serial.println(max_altitude);
+        
+        Serial.print("Max simulated altitude is at ");
+        Serial.println(max_sim_altitude);
+
+        pressure_sensor_status = 0;
+        accelerometer_status = 0;
         return;
       }
       else
@@ -470,12 +438,34 @@ void SimulateValues()
 	y1 = x1 * w;
 	y2 = x2 * w;
       }
-      bmpData[3] = altitude + y1 * standard_deviation_alt;
-      accelData[3] = acceleration;
-      bmpData[0] = actual_millis * 1000;
-      accelData[0] = actual_millis * 1000;
+      if ( max_sim_altitude < altitude )
+        max_sim_altitude = altitude;
+      bmp_data[3] = altitude + y1 * standard_deviation_alt;
+      accel_data[3] = acceleration;
+      bmp_data[0] = actual_millis * 1000;
+      accel_data[0] = actual_millis * 1000;
+      
   }
-  pressureSensorStatus = 1;
-  accelerometerStatus = 1;
+  else
+  {
+     pressure_sensor_status = 0;
+     accelerometer_status = 0; 
+  }
+
+}
+void CheckIfcommand_recieved()
+{
+  char currentCommand[25] = {'\0'};
+   if ( transceiver_module.GetData(currentCommand,25) && currentCommand[0] == (char)START_BYTE )
+  {
+    if ( currentCommand[7] == 'U' && currentCommand[8] == 'U' && currentCommand[12] == 'S' && currentCommand[13] == '1' ) // Put rocket-commander in stage one(unlocked)
+      rocket_stage = STAGE_ONE;
+    else if ( currentCommand[7] == 'L' && currentCommand[8] == 'L' && currentCommand[12] == 'S' && currentCommand[13] == '0' ) // Put rocket-commander in stage zero (locked)
+      rocket_stage = LOCKED_GROUND_STAGE;
+    else if ( currentCommand[7] == 'S' && currentCommand[8] == 'M' && currentCommand[12] == 'S' && currentCommand[13] == '1' ) // Put rocket-commander in simulation mode
+      simulation_on = 1;
+    else if ( currentCommand[7] == 'S' && currentCommand[8] == 'M' && currentCommand[12] == 'S' && currentCommand[13] == '0' ) // Turn simulation mode off for rocket-commander
+      simulation_on = 0;
+  }
 }
 
