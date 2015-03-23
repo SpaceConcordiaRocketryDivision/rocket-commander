@@ -28,6 +28,8 @@
 #define CALC_VALUES_ID 0x43
 
 //Ejection Charge Pins
+#define DROGUE_CHUTE_TRANSISTOR 2
+#deiine MAIN_CHUTE_TRANSISTOR 3
 #define DROGUE_CHUTE_PIN 7
 #define MAIN_CHUTE_PIN 6
 
@@ -94,12 +96,14 @@ long transciever_count = 0;
 
 int rocket_stage = 0;
 float velocity = 0.01f;
+
+bool debug_led = true;
 void setup() {
  // mySerial.begin(115200);
-  Serial.begin(115200);
+  Serial.begin(57600);
   pinMode(DROGUE_CHUTE_PIN,OUTPUT);
   pinMode(MAIN_CHUTE_PIN, OUTPUT);
-  
+  pinMode(9, OUTPUT);
   pressure_sensor.Init();
   accelerometer.Init(); 
   transceiver_module.Init('A');
@@ -113,9 +117,18 @@ void setup() {
 }
 
 void loop() { 
-  
+  if (debug_led)
+  {
+    digitalWrite(9, HIGH);
+    debug_led = false;
+  }
+  else
+  {
+    digitalWrite(9, HIGH);
+    debug_led = true;
+  }
   #ifdef OUTPUT_EXCEL_ENABLED
-  Serial.print("DATA,TIME,"); Serial.print(bmp_data[3]); Serial.print(","); Serial.print(filteredAlt); Serial.print(","); Serial.println(bmp_data[0]);
+    Serial.print("DATA,TIME,"); Serial.print(bmp_data[3]); Serial.print(","); Serial.print(filteredAlt); Serial.print(","); Serial.println(bmp_data[0]);
   #endif
     
   if (simulation_on)
@@ -123,7 +136,8 @@ void loop() {
   else
   {
     pressure_sensor_status = pressure_sensor.GetData(bmp_data);
-    //accelerometer_status = accelerometer.GetData(accel_data);
+    accelerometer_status = accelerometer.GetData(accel_data);
+    
     //gyrometerStatus = gyroscope.GetData(gyroData);
     if ( band_count == 10 ) // Let the pressure sensor initialize for 10 iterations before sending sea level pressure
       pressure_sensor.SendData(bmp_data[1]);
@@ -131,7 +145,7 @@ void loop() {
   if (band_count == 100)
   {
     rocket_stage=1;
-    simulation_on = 1; 
+  //  simulation_on = 1; 
   }
   
   FilterPressure();
@@ -139,7 +153,7 @@ void loop() {
   if ( max_altitude < filtered_altitude )
     max_altitude = filtered_altitude;
   
-  #ifdef TRANSCIEVER_ENABLEDs
+  #ifdef TRANSCIEVER_ENABLED
    if (transciever_count * 1000 < millis() ) // every
    {
     // Serial.print("Iterations for last one seconds: "); Serial.println(band_count - old_band_count);
@@ -170,7 +184,7 @@ void loop() {
   
   CheckIfcommand_recieved();
  
-  OutputDataArrays(); 
+  //OutputDataArrays(); 
  
    // Below handles the rocket stages, the functions will transition the stage of the rocket to the next stage when a condition is met
   switch (rocket_stage)
