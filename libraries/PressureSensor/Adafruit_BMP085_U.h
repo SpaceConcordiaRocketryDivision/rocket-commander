@@ -108,7 +108,7 @@ class Adafruit_BMP085_Unified : public Adafruit_Sensor
     float seaLevelForAltitude(float altitude, float atmospheric, float temp);
     void  getEvent(sensors_event_t*);
     void  getSensor(sensor_t*);
-	void  getPressureAndPressure(float *pressure, float *temp);
+	void  getPressureAndTemperature(float *pressure, float *temp);
 
   private:
     int32_t computeB5(int32_t ut);

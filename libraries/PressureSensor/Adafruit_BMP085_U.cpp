@@ -330,7 +330,7 @@ void Adafruit_BMP085_Unified::getPressure(float *pressure)
   /* Assign compensated pressure value */
   *pressure = compp;
 }
-void Adafruit_BMP085_Unified::getPressureAndPressure(float *pressure, float *temp)
+void Adafruit_BMP085_Unified::getPressureAndTemperature(float *pressure, float *temp)
 {
 	static int32_t  ut = 0;
 	int32_t up = 0, compp = 0;
@@ -339,14 +339,13 @@ void Adafruit_BMP085_Unified::getPressureAndPressure(float *pressure, float *tem
 	static int count = 0;
 
 	/* Get the raw pressure and temperature values */
-	if (count == 4)
-
-	{
-		count = 0;
+	//if (count == 4)
+	//{
+		//count = 0;
 		readRawTemperature(&ut);
-	}
-	else
-		count++;
+	//}
+	//else
+		//count++;
 	readRawPressure(&up);
 
 	/* Temperature compensation */

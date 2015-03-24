@@ -10,7 +10,7 @@ void PressureSensor::Init() {
 }
 
 bool PressureSensor::GetData(float array[]) {
-	bmp.getPressureAndPressure(&array[1], &array[2]);
+	bmp.getPressureAndTemperature(&array[1], &array[2]);
 	array[0] = millis();
 	array[3] = bmp.pressureToAltitude(seaLevelPressure, array[1], array[2]);
 	return 1; 
