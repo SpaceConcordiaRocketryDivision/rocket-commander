@@ -29,7 +29,7 @@
 
 //Ejection Charge Pins
 #define DROGUE_CHUTE_TRANSISTOR 2
-#deiine MAIN_CHUTE_TRANSISTOR 3
+#define MAIN_CHUTE_TRANSISTOR 3
 #define DROGUE_CHUTE_PIN 7
 #define MAIN_CHUTE_PIN 6
 
@@ -82,6 +82,7 @@ float apogee_time = 0.0f;
 float filt_apogee_time = 0.0f;
 
 int count = 1;
+int send_rate = 500;
 // Array for sensors, sizes of each array defined in header for sensor
 float accel_data[ACCELEROMETER_ARRAY_SIZE] = {
   0}; //x, y, z
@@ -98,17 +99,25 @@ int rocket_stage = 0;
 float velocity = 0.01f;
 
 bool debug_led = true;
+int counter = 0;
 void setup() {
  // mySerial.begin(115200);
   Serial.begin(57600);
   pinMode(DROGUE_CHUTE_PIN,OUTPUT);
   pinMode(MAIN_CHUTE_PIN, OUTPUT);
-  pinMode(9, OUTPUT);
+  pinMode(DROGUE_CHUTE_TRANSISTOR, OUTPUT);
+  pinMode(MAIN_CHUTE_TRANSISTOR, OUTPUT);
   pressure_sensor.Init();
   accelerometer.Init(); 
   transceiver_module.Init('A');
  // gyroscope.Init(); //TODO: set up resolution
   
+  while(counter < 200)
+  {
+    counter++;
+    pressure_sensor_status = pressure_sensor.GetData(bmp_data);
+  }
+  pressure_sensor.SendData(bmp_data[1]);
   #ifdef OUTPUT_EXCEL_ENABLED
 	Serial.println("CLEARDATA");
 	Serial.println("LABEL,Time,Alt,AltFiltered,Milis");
@@ -139,10 +148,8 @@ void loop() {
     accelerometer_status = accelerometer.GetData(accel_data);
     
     //gyrometerStatus = gyroscope.GetData(gyroData);
-    if ( band_count == 10 ) // Let the pressure sensor initialize for 10 iterations before sending sea level pressure
-      pressure_sensor.SendData(bmp_data[1]);
   } 
-  if (band_count == 100)
+  if (band_count == -1)
   {
     rocket_stage=1;
   //  simulation_on = 1; 
@@ -154,7 +161,7 @@ void loop() {
     max_altitude = filtered_altitude;
   
   #ifdef TRANSCIEVER_ENABLED
-   if (transciever_count * 1000 < millis() ) // every
+   if (transciever_count * send_rate < millis() ) // every
    {
     // Serial.print("Iterations for last one seconds: "); Serial.println(band_count - old_band_count);
      
@@ -162,7 +169,7 @@ void loop() {
      if (pressure_sensor_status)
        transceiver_module.SendData(bmp_data,PRESSURE_ARRAY_SIZE,PRESSURE_SENSOR_ID, (char)(((int)'0') + rocket_stage));
      if ( transciever_count % 2 == 0 ) // Transmit every 2 seconds
-     {
+     { 
        if (accelerometer_status)
            transceiver_module.SendData(accel_data,ACCELEROMETER_ARRAY_SIZE,DOF_SENSOR_ID, (char)(((int)'0') + rocket_stage));
       // if (gyrometerStatus)
@@ -173,7 +180,7 @@ void loop() {
      {
        if (transmit_customData)
        {
-           float tempArray[] = {bmp_data[0],filtered_altitude, calculated_velocity,(float)(band_count-old_band_count)};
+           float tempArray[] = {bmp_data[0],filtered_altitude, calculated_velocity,(float)(send_rate / (band_count-old_band_count))};
            transceiver_module.SendData(tempArray,4,CALC_VALUES_ID, (char)(((int)'0') + rocket_stage));
        }  
      }
@@ -190,6 +197,7 @@ void loop() {
   switch (rocket_stage)
   {
   case LOCKED_GROUND_STAGE:
+    StageZero();
     break;
   case STAGE_ONE:
     StageOne();
@@ -288,8 +296,15 @@ void FilterPressure()
   filtered_altitude = est[0];
   
 }
+void StageZero()
+{
+  digitalWrite(DROGUE_CHUTE_TRANSISTOR, LOW);
+  digitalWrite(MAIN_CHUTE_TRANSISTOR, LOW);
+}
 void StageOne()
 {
+  digitalWrite(DROGUE_CHUTE_TRANSISTOR, HIGH);
+  digitalWrite(MAIN_CHUTE_TRANSISTOR, HIGH);
   if (filtered_altitude > 50.0f) // if altitude is greater than 50m
   {
     Serial.println("Thrust Stage");
@@ -387,7 +402,7 @@ void SimulateValues()
   
   if (!simulation_done && rocket_stage > 0)
   {
-      delay(5);
+      delay(20);
     //dt = millis() / 1000.0f - actual_millis;
       dt = 20.0f/1000.0f;
       //Serial.println(dt * 1000.0f);
@@ -456,7 +471,7 @@ void SimulateValues()
         max_sim_altitude = altitude;
       bmp_data[3] = altitude + y1 * standard_deviation_alt;
       accel_data[3] = acceleration;
-      bmp_data[0] = actual_millis * 1000;
+      bmp_data[0] = actual_millis * 1000 + millis();
       accel_data[0] = actual_millis * 1000;
       
   }
@@ -470,8 +485,10 @@ void SimulateValues()
 void CheckIfcommand_recieved()
 {
   char currentCommand[25] = {'\0'};
+  
    if ( transceiver_module.GetData(currentCommand,25) && currentCommand[0] == (char)START_BYTE )
   {
+    Serial.println(currentCommand);
     if ( currentCommand[7] == 'U' && currentCommand[8] == 'U' && currentCommand[12] == 'S' && currentCommand[13] == '1' ) // Put rocket-commander in stage one(unlocked)
       rocket_stage = STAGE_ONE;
     else if ( currentCommand[7] == 'L' && currentCommand[8] == 'L' && currentCommand[12] == 'S' && currentCommand[13] == '0' ) // Put rocket-commander in stage zero (locked)
@@ -480,6 +497,18 @@ void CheckIfcommand_recieved()
       simulation_on = 1;
     else if ( currentCommand[7] == 'S' && currentCommand[8] == 'M' && currentCommand[12] == 'S' && currentCommand[13] == '0' ) // Turn simulation mode off for rocket-commander
       simulation_on = 0;
+    else if ( currentCommand[7] == 'C' && currentCommand[8] == 'R' ) //  Get Rate
+    {
+      byte byte_array[2];
+      byte_array[0] = (byte)currentCommand[12];
+      byte_array[1] = (byte)currentCommand[13];
+      
+      send_rate = (byte_array[0] << 8) + byte_array[1];
+      transciever_count = millis() / send_rate;
+      Serial.println(send_rate);
+      Serial.println(transciever_count);
+    }
+     
   }
 }
 
