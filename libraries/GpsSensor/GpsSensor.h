@@ -12,15 +12,15 @@ class GpsSensor
 {
 	public:
 		GpsSensor();
-		bool GetData(float[]);
-        bool SendData(float pressureToSet);
+		boolean GetData(float[]);
+        boolean SendData(float pressureToSet);
         void Init();
-		void useInterrupt(bool);
+		void useInterrupt(boolean);
 
 	private:
-		//SoftwareSerial mySerial;
-		//Adafruit_GPS GPS;
-		bool usingInterrupt;
+		SoftwareSerial mySerial;
+		Adafruit_GPS GPS;
+		boolean usingInterrupt;
 		//sensors_event_t event;
 
         

@@ -1,4 +1,5 @@
 #include "GpsSensor.h"
+
 // If you're using a GPS module:
 // Connect the GPS Power pin to 5V
 // Connect the GPS Ground pin to ground
@@ -9,13 +10,19 @@
 //   Connect the GPS TX (transmit) pin to Arduino RX1, RX2 or RX3
 //   Connect the GPS RX (receive) pin to matching TX1, TX2 or TX3
 
+
+GpsSensor::GpsSensor()
+{
+}
+void GpsSensor::Init()
+{
 	// If you're using the Adafruit GPS shield, change 
 	// SoftwareSerial mySerial(3, 2); -> SoftwareSerial mySerial(8, 7);
 	// and make sure the switch is set to SoftSerial
 
 	// If using software serial, keep this line enabled
 	// (you can change the pin numbers to match your wiring):
-	SoftwareSerial mySerial = SoftwareSerial(3, 2);
+	mySerial = SoftwareSerial(3, 2);
 
 	// If using hardware serial (e.g. Arduino Mega), comment out the
 	// above SoftwareSerial line, and enable this line instead
@@ -24,15 +31,7 @@
 	//HardwareSerial mySerial = Serial1;
 
 
-	Adafruit_GPS GPS = Adafruit_GPS(&mySerial);
-
-	bool usingInterrupt;
-GpsSensor::GpsSensor()
-{
-}
-void GpsSensor::Init()
-{
-	
+	GPS = GPS(&mySerial);
 
 	// Set GPSECHO to 'false' to turn off echoing the GPS data to the Serial console
 	// Set to 'true' if you want to debug and listen to the raw GPS sentences. 
@@ -45,6 +44,7 @@ void GpsSensor::Init()
 
 
 	Serial.begin(115200);
+	Serial.println("Adafruit GPS library basic test!");
 
 	// 9600 NMEA is the default baud rate for Adafruit MTK GPS's- some use 4800
 	GPS.begin(9600);
@@ -73,7 +73,7 @@ void GpsSensor::Init()
 	// Ask for firmware version
 	mySerial.println(PMTK_Q_RELEASE);
 }
-bool GpsSensor::GetData(float array[])
+boolean GpsSensor::GetData(float array[])
 {
 	// in case you are not using the interrupt above, you'll
 	// need to 'hand query' the GPS, not suggested :(
@@ -81,8 +81,8 @@ bool GpsSensor::GetData(float array[])
 		// read data from the GPS in the 'main loop'
 		char c = GPS.read();
 		// if you want to debug, this is a good time to do it!
-		/*if (GPSECHO)
-			if (c) Serial.print(c);*/
+		if (GPSECHO)
+			if (c) Serial.print(c);
 	}
 
 	// if a sentence is received, we can check the checksum, parse it...
@@ -108,20 +108,10 @@ bool GpsSensor::GetData(float array[])
 	  array[7] = GPS.angle;
 	  array[8] = GPS.speed;
   }
-  else
-  {
-	  //if no fix, then set the values to 0
-	  array[3] = 0;
-	  array[4] = 0;
-	  array[5] = 0;
-	  array[6] = 0;
-	  array[7] = 0;
-	  array[8] = 0;
-  }
 
   return 1;
 }
-bool GpsSensor::SendData(float pressureToSet)
+boolean GpsSensor::SendData(float pressureToSet)
 {
   return 0;
 }
@@ -138,7 +128,7 @@ SIGNAL(TIMER0_COMPA_vect) {
 #endif
 }
 
-void GpsSensor::useInterrupt(bool v) {
+void useInterrupt(boolean v) {
   if (v) {
     // Timer0 is already used for millis() - we'll just interrupt somewhere
     // in the middle and call the "Compare A" function above
