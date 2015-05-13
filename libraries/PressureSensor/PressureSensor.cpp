@@ -2,11 +2,12 @@
 
 PressureSensor::PressureSensor() {}
 
-void PressureSensor::Init() {
+bool PressureSensor::Init() {
 	Adafruit_BMP085_Unified bmp = Adafruit_BMP085_Unified(10085);
 	seaLevelPressure = SENSORS_PRESSURE_SEALEVELHPA;
-	if(!bmp.begin())
-		while(1);
+	Serial.println(bmp.begin());
+	return bmp.begin();
+
 }
 
 bool PressureSensor::GetData(float array[]) {

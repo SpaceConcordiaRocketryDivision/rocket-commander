@@ -3,9 +3,9 @@
 Accelerometer::Accelerometer() {
 	Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(00001);
 }
-void Accelerometer::Init() {
-	if(!accel.begin())
-		while(1);
+bool Accelerometer::Init() {
+	return accel.begin();
+
 }
 
 boolean Accelerometer::GetData(float array[]) {

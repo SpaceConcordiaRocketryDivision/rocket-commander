@@ -12,7 +12,7 @@ public:
 	PressureSensor();
 	bool GetData (float array[]);
 	bool SendData(float pressureToSet);
-	void Init();
+	bool Init();
         
 private:
 	Adafruit_BMP085_Unified bmp;

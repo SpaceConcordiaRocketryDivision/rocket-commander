@@ -12,7 +12,7 @@ class Accelerometer {
 public:
 	Accelerometer();
 	boolean GetData(float array[]);
-	void Init();
+	bool Init();
 
 private:
 	Adafruit_LSM303_Accel_Unified accel;

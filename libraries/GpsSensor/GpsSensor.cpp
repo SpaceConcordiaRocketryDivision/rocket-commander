@@ -36,7 +36,7 @@ void GpsSensor::Init()
 
 	// Set GPSECHO to 'false' to turn off echoing the GPS data to the Serial console
 	// Set to 'true' if you want to debug and listen to the raw GPS sentences. 
-	#define GPSECHO  true
+	#define GPSECHO  false
 
 	// this keeps track of whether we're using the interrupt
 	// off by default!

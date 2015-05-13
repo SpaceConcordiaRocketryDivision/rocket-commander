@@ -102,13 +102,13 @@ bool debug_led = true;
 int counter = 0;
 void setup() {
  // mySerial.begin(115200);
-  Serial.begin(57600);
+  Serial.begin(115200);
   pinMode(DROGUE_CHUTE_PIN,OUTPUT);
   pinMode(MAIN_CHUTE_PIN, OUTPUT);
   pinMode(DROGUE_CHUTE_TRANSISTOR, OUTPUT);
   pinMode(MAIN_CHUTE_TRANSISTOR, OUTPUT);
-  pressure_sensor.Init();
-  accelerometer.Init(); 
+  pressure_sensor_status = pressure_sensor.Init();
+  accelerometer_status = accelerometer.Init(); 
   transceiver_module.Init('A');
  // gyroscope.Init(); //TODO: set up resolution
   
@@ -144,8 +144,10 @@ void loop() {
     SimulateValues();
   else
   {
-    pressure_sensor_status = pressure_sensor.GetData(bmp_data);
-    accelerometer_status = accelerometer.GetData(accel_data);
+    if ( pressure_sensor_status)
+      pressure_sensor.GetData(bmp_data);
+    if ( accelerometer_status)
+      accelerometer.GetData(accel_data);
     
     //gyrometerStatus = gyroscope.GetData(gyroData);
   } 

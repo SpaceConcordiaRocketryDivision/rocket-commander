@@ -263,6 +263,7 @@ bool Adafruit_BMP085_Unified::begin(bmp085_mode_t mode)
   read8(BMP085_REGISTER_CHIPID, &id);
   if(id != 0x55)
   {
+	  Serial.println("5");
     return false;
   }
   /* Set the mode indicator */
@@ -270,7 +271,7 @@ bool Adafruit_BMP085_Unified::begin(bmp085_mode_t mode)
 
   /* Coefficients need to be read once */
   readCoefficients();
-    
+  Serial.println("7");
   return true;
 }
 
