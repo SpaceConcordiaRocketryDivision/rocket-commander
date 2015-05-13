@@ -6,19 +6,13 @@
 //#include <SoftwareSerial.h>
 #include <Wire.h>
 
-// ifdef to enable or disable pieces of code for debugging
-//#define SIMULATION
-#define TRANSCIEVER_ENABLED
-
 //Flight Stages of the Rocket
-#define LOCKED_GROUND_STAGE 0
-#define STAGE_ONE 1
-#define STAGE_TWO 2
-#define STAGE_THREE 3
-#define STAGE_FOUR 4
-#define STAGE_FIVE 5
-
-//#define OUTPUT_EXCEL_ENABLED 0
+#define LOCKED_GROUND_STAGE 0 // Rocket is on launch pad and is locked
+#define STAGE_ONE 1           // Rocket is on launch pad and is unlocked
+#define STAGE_TWO 2           // Rocket motor is burning and rocket is accelerating
+#define STAGE_THREE 3         // Rocket motor is burnt out and rocket is deaccelerating and approaching apogee
+#define STAGE_FOUR 4          // Rocket has achieved apogee, deployed drogue chute and is now descending
+#define STAGE_FIVE 5          // Rocket has achieved specified altitude, deployed main chute and still descending but now slower towards the ground
 
 //Component Id values
 #define PRESSURE_SENSOR_ID 0x50
@@ -28,8 +22,8 @@
 #define CALC_VALUES_ID 0x43
 
 //Ejection Charge Pins
-#define DROGUE_CHUTE_TRANSISTOR 2
-#define MAIN_CHUTE_TRANSISTOR 3
+#define DROGUE_CHUTE_TRANSISTOR 2 
+#define MAIN_CHUTE_TRANSISTOR 3 
 #define DROGUE_CHUTE_PIN 7
 #define MAIN_CHUTE_PIN 6
 
@@ -43,14 +37,13 @@
 //Component objects
 PressureSensor pressure_sensor;
 TransceiverModule transceiver_module;
-Accelerometer accelerometer;
+Accelerometer accelerometer_sensor;
 
 
 // Status of sensors: 0 = offline, 1 = online
 boolean pressure_sensor_status = 0;
 boolean accelerometer_status = 0; //separate value for each sensor
 
-boolean command_recieved = 0;
 boolean transmit_customData = 1;
 
 //Kalman Filter Variables
@@ -75,14 +68,12 @@ float calculated_velocity = 0.0f;
 float calculated_acceleration = 0.0f;
 float filtered_altitude = 0.1f;
 float max_altitude = 0.0f;
-int sampling_rate = 0;
-
 
 float apogee_time = 0.0f;
 float filt_apogee_time = 0.0f;
 
 int count = 1;
-int send_rate = 500;
+int send_rate = 150;
 // Array for sensors, sizes of each array defined in header for sensor
 float accel_data[ACCELEROMETER_ARRAY_SIZE] = {
   0}; //x, y, z
@@ -91,79 +82,61 @@ float bmp_data[PRESSURE_ARRAY_SIZE] = {
   
 int time_temp = 0;
 bool simulation_on = 0;  
-int band_count = 0;
-int old_band_count = 0;
+float new_millis_loop = 0;
+float old_millis_loop = 0;
 long transciever_count = 0;
 
 int rocket_stage = 0;
 float velocity = 0.01f;
 
-bool debug_led = true;
-int counter = 0;
 void setup() {
- // mySerial.begin(115200);
+  int initCounter = 0;
   Serial.begin(115200);
+  
   pinMode(DROGUE_CHUTE_PIN,OUTPUT);
   pinMode(MAIN_CHUTE_PIN, OUTPUT);
   pinMode(DROGUE_CHUTE_TRANSISTOR, OUTPUT);
   pinMode(MAIN_CHUTE_TRANSISTOR, OUTPUT);
-  pressure_sensor_status = pressure_sensor.Init();
-  accelerometer_status = accelerometer.Init(); 
-  transceiver_module.Init('A');
- // gyroscope.Init(); //TODO: set up resolution
   
-  while(counter < 200)
+  pressure_sensor_status = pressure_sensor.Init();
+  accelerometer_status = accelerometer_sensor.Init(); 
+  transceiver_module.Init('A');
+
+  while(initCounter < 200) // So some sample readings to let the sensors settle
   {
-    counter++;
+ 
+    initCounter++;
     pressure_sensor_status = pressure_sensor.GetData(bmp_data);
+    accelerometer_sensor.GetData(accel_data);
   }
   pressure_sensor.SendData(bmp_data[1]);
-  #ifdef OUTPUT_EXCEL_ENABLED
-	Serial.println("CLEARDATA");
-	Serial.println("LABEL,Time,Alt,AltFiltered,Milis");
-  #endif
+
   CalculateKalmanGain(40);
 }
 
 void loop() { 
-  if (debug_led)
-  {
-    digitalWrite(9, HIGH);
-    debug_led = false;
-  }
-  else
-  {
-    digitalWrite(9, HIGH);
-    debug_led = true;
-  }
-  #ifdef OUTPUT_EXCEL_ENABLED
-    Serial.print("DATA,TIME,"); Serial.print(bmp_data[3]); Serial.print(","); Serial.print(filteredAlt); Serial.print(","); Serial.println(bmp_data[0]);
-  #endif
-    
+  
+  old_millis_loop = new_millis_loop;
+  new_millis_loop = millis();
+     
   if (simulation_on)
+  {
     SimulateValues();
+  }
   else
   {
     if ( pressure_sensor_status)
       pressure_sensor.GetData(bmp_data);
     if ( accelerometer_status)
-      accelerometer.GetData(accel_data);
-    
-    //gyrometerStatus = gyroscope.GetData(gyroData);
+      accelerometer_sensor.GetData(accel_data);
   } 
-  if (band_count == -1)
-  {
-    rocket_stage=1;
-  //  simulation_on = 1; 
-  }
   
   FilterPressure();
   
   if ( max_altitude < filtered_altitude )
     max_altitude = filtered_altitude;
   
-  #ifdef TRANSCIEVER_ENABLED
-   if (transciever_count * send_rate < millis() ) // every
+   if (transciever_count * send_rate  < millis() ) // every
    {
     // Serial.print("Iterations for last one seconds: "); Serial.println(band_count - old_band_count);
      
@@ -182,14 +155,14 @@ void loop() {
      {
        if (transmit_customData)
        {
-           float tempArray[] = {bmp_data[0],filtered_altitude, calculated_velocity,(float)(send_rate / (band_count-old_band_count))};
+           float tempArray[] = {bmp_data[0],filtered_altitude, calculated_velocity,new_millis_loop - old_millis_loop};
            transceiver_module.SendData(tempArray,4,CALC_VALUES_ID, (char)(((int)'0') + rocket_stage));
        }  
      }
-     old_band_count = band_count;
+    
    } 
-   #endif
-  band_count++;
+
+  
   
   CheckIfcommand_recieved();
  
@@ -216,13 +189,12 @@ void loop() {
   default:
     break;
   }
- // Serial.println(millis()-time_temp);
 }
 void CalculateKalmanGain(int count)
 {
   for ( int i = 0; i <= count; i++ )
   {
-    float dt = 9.0f/1000.0f;
+    float dt = 15.0f/1000.0f;
   
     phi[0][1] = dt;
     phi[1][2] = dt;
@@ -268,14 +240,12 @@ void CalculateKalmanGain(int count)
     pest[2][1] = pestp[1][2] - gain[2] * pestp[1][0];
     pest[2][2] = pestp[2][2] - gain[2] * pestp[2][0];
     
-    Serial.print( "Gain[0]: "); Serial.print(gain[0]); Serial.print( " Gain[1]: ");Serial.print(gain[1]); Serial.print( " Gain[2]: ");Serial.println(gain[2]);
+    Serial.print( "Gain[0]: "); Serial.print(gain[0],10); Serial.print( " Gain[1]: ");Serial.print(gain[1], 10); Serial.print( " Gain[2]: ");Serial.println(gain[2], 10);
   }
 }
 void FilterPressure()
 {
-  float dt = (10)/1000.0f;
-//  Serial.println(millis()-time_temp);
-  time_temp = millis();
+  float dt = 15.0f/1000.0f;
   
   phi[0][1] = dt;
   phi[1][2] = dt;
@@ -309,7 +279,6 @@ void StageOne()
   digitalWrite(MAIN_CHUTE_TRANSISTOR, HIGH);
   if (filtered_altitude > 50.0f) // if altitude is greater than 50m
   {
-    Serial.println("Thrust Stage");
     rocket_stage = STAGE_TWO;
   }
 }
@@ -319,7 +288,6 @@ void StageTwo()
   if ( calculated_acceleration < 0 )
   {
     rocket_stage = STAGE_THREE;
-    Serial.println("Deceleration Stage");
   }
 }
 
@@ -329,10 +297,7 @@ void StageThree()
   {
     digitalWrite(DROGUE_CHUTE_PIN, HIGH);  
     rocket_stage = STAGE_FOUR;
-   // Serial.println("Descent drogue chute stage");
     filt_apogee_time = bmp_data[0];
-    //Serial.print("Filtered apogee is at ");
-    //Serial.println(apogee_time);
   }
 }
 
@@ -341,7 +306,6 @@ void StageFour()
   if ( filtered_altitude <= 1000.0f )
   {
     digitalWrite(MAIN_CHUTE_PIN, HIGH);
-    Serial.println("Ground Stage");
     rocket_stage = STAGE_FIVE;
   }
 }
