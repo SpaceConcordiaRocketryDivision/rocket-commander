@@ -152,18 +152,15 @@ void loop() {
  
      }
      else
-     {
+     {                                                                                                                                                                                                                                                                                                                                                        
        if (transmit_customData)
        {
-           float tempArray[] = {bmp_data[0],filtered_altitude, calculated_velocity,new_millis_loop - old_millis_loop};
-           transceiver_module.SendData(tempArray,4,CALC_VALUES_ID, (char)(((int)'0') + rocket_stage));
+           float tempArray[] = {bmp_data[0],filtered_altitude, calculated_velocity,new_millis_loop - old_millis_loop,max_altitude};
+           transceiver_module.SendData(tempArray,5,CALC_VALUES_ID, (char)(((int)'0') + rocket_stage));
        }  
      }
     
    } 
-
-  
-  
   CheckIfcommand_recieved();
  
   //OutputDataArrays(); 
@@ -268,6 +265,11 @@ void FilterPressure()
   filtered_altitude = est[0];
   
 }
+void CustomData()
+{
+   float tempArray[] = {bmp_data[0],filtered_altitude, calculated_velocity,new_millis_loop - old_millis_loop,max_altitude};
+   transceiver_module.SendData(tempArray,5,CALC_VALUES_ID, (char)(((int)'0') + rocket_stage)); 
+}
 void StageZero()
 {
   digitalWrite(DROGUE_CHUTE_TRANSISTOR, LOW);
@@ -277,8 +279,11 @@ void StageOne()
 {
   digitalWrite(DROGUE_CHUTE_TRANSISTOR, HIGH);
   digitalWrite(MAIN_CHUTE_TRANSISTOR, HIGH);
-  if (filtered_altitude > 50.0f) // if altitude is greater than 50m
+  if (filtered_altitude > 100.0f) // if altitude is greater than 50m
   {
+    Serial.println("Stage Two" );
+    transceiver_module.SendData(bmp_data,PRESSURE_ARRAY_SIZE,PRESSURE_SENSOR_ID, (char)(((int)'0') + rocket_stage));
+    CustomData();
     rocket_stage = STAGE_TWO;
   }
 }
@@ -287,6 +292,9 @@ void StageTwo()
 {
   if ( calculated_acceleration < 0 )
   {
+    Serial.println("Stage Three" );
+    transceiver_module.SendData(bmp_data,PRESSURE_ARRAY_SIZE,PRESSURE_SENSOR_ID, (char)(((int)'0') + rocket_stage));
+    CustomData();
     rocket_stage = STAGE_THREE;
   }
 }
@@ -295,6 +303,9 @@ void StageThree()
 {
   if ( calculated_velocity <= 0 )
   {
+    Serial.println("Stage Four" );
+    transceiver_module.SendData(bmp_data,PRESSURE_ARRAY_SIZE,PRESSURE_SENSOR_ID, (char)(((int)'0') + rocket_stage));
+    CustomData();
     digitalWrite(DROGUE_CHUTE_PIN, HIGH);  
     rocket_stage = STAGE_FOUR;
     filt_apogee_time = bmp_data[0];
@@ -305,6 +316,9 @@ void StageFour()
 {
   if ( filtered_altitude <= 1000.0f )
   {
+    Serial.println("Stage Five" );
+    transceiver_module.SendData(bmp_data,PRESSURE_ARRAY_SIZE,PRESSURE_SENSOR_ID, (char)(((int)'0') + rocket_stage));
+    CustomData();
     digitalWrite(MAIN_CHUTE_PIN, HIGH);
     rocket_stage = STAGE_FIVE;
   }
