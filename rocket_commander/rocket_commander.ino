@@ -23,9 +23,9 @@
 
 //Ejection Charge Pins
 #define DROGUE_CHUTE_TRANSISTOR 2 
-#define MAIN_CHUTE_TRANSISTOR 3 
-#define DROGUE_CHUTE_PIN 7
+#define DROGUE_CHUTE_PIN 3
 #define MAIN_CHUTE_PIN 6
+#define MAIN_CHUTE_TRANSISTOR 7 
 
 //Kalman Filter Macro
 #define MEASUREMENTSIGMA 0.44
@@ -477,6 +477,10 @@ void CheckIfcommand_recieved()
       simulation_on = 1;
     else if ( currentCommand[7] == 'S' && currentCommand[8] == 'M' && currentCommand[12] == 'S' && currentCommand[13] == '0' ) // Turn simulation mode off for rocket-commander
       simulation_on = 0;
+    else if ( currentCommand[7] == 'D' && currentCommand[8] == 'A' && currentCommand[12] == 'D' && currentCommand[13] == 'A' ) // Fire drogue chute
+      digitalWrite(DROGUE_CHUTE_PIN, HIGH); 
+    else if ( currentCommand[7] == 'D' && currentCommand[8] == 'M' && currentCommand[12] == 'D' && currentCommand[13] == 'M' ) // Fire drogue chute
+      digitalWrite(DROGUE_CHUTE_PIN, HIGH); 
     else if ( currentCommand[7] == 'C' && currentCommand[8] == 'R' ) //  Get Rate
     {
       byte byte_array[2];
