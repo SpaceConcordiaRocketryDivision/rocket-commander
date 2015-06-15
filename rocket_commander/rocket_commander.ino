@@ -480,7 +480,7 @@ void CheckIfcommand_recieved()
     else if ( currentCommand[7] == 'D' && currentCommand[8] == 'A' && currentCommand[12] == 'D' && currentCommand[13] == 'A' ) // Fire drogue chute
       digitalWrite(DROGUE_CHUTE_PIN, HIGH); 
     else if ( currentCommand[7] == 'D' && currentCommand[8] == 'M' && currentCommand[12] == 'D' && currentCommand[13] == 'M' ) // Fire drogue chute
-      digitalWrite(DROGUE_CHUTE_PIN, HIGH); 
+      digitalWrite(MAIN_CHUTE_PIN, HIGH); 
     else if ( currentCommand[7] == 'C' && currentCommand[8] == 'R' ) //  Get Rate
     {
       byte byte_array[2];
