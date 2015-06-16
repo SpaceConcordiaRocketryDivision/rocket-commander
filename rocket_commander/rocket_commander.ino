@@ -100,7 +100,7 @@ void setup() {
   
   pressure_sensor_status = pressure_sensor.Init();
   accelerometer_status = accelerometer_sensor.Init(); 
-  transceiver_module.Init('A');
+  transceiver_module.Init('T');
 
   while(initCounter < 200) // So some sample readings to let the sensors settle
   {
@@ -468,7 +468,6 @@ void CheckIfcommand_recieved()
   
    if ( transceiver_module.GetData(currentCommand,25) && currentCommand[0] == (char)START_BYTE )
   {
-    Serial.println(currentCommand);
     if ( currentCommand[7] == 'U' && currentCommand[8] == 'U' && currentCommand[12] == 'S' && currentCommand[13] == '1' ) // Put rocket-commander in stage one(unlocked)
       rocket_stage = STAGE_ONE;
     else if ( currentCommand[7] == 'L' && currentCommand[8] == 'L' && currentCommand[12] == 'S' && currentCommand[13] == '0' ) // Put rocket-commander in stage zero (locked)
@@ -477,7 +476,7 @@ void CheckIfcommand_recieved()
       simulation_on = 1;
     else if ( currentCommand[7] == 'S' && currentCommand[8] == 'M' && currentCommand[12] == 'S' && currentCommand[13] == '0' ) // Turn simulation mode off for rocket-commander
       simulation_on = 0;
-    else if ( currentCommand[7] == 'D' && currentCommand[8] == 'A' && currentCommand[12] == 'D' && currentCommand[13] == 'A' ) // Fire drogue chute
+    else if ( currentCommand[7] == 'D' && currentCommand[8] == 'S' && currentCommand[12] == 'D' && currentCommand[13] == 'S' ) // Fire drogue chute
       digitalWrite(DROGUE_CHUTE_PIN, HIGH); 
     else if ( currentCommand[7] == 'D' && currentCommand[8] == 'M' && currentCommand[12] == 'D' && currentCommand[13] == 'M' ) // Fire drogue chute
       digitalWrite(MAIN_CHUTE_PIN, HIGH); 
